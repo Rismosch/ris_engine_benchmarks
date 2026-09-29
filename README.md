@@ -4,11 +4,10 @@ Benchmarks for ris_engine: https://github.com/Rismosch/ris_engine
 
 # Requirements
 
-- cargo and rustc
-- vulkan capable hardware
+- The same as [ris_engine](https://github.com/Rismosch/ris_engine#requirements)
 - gnuplot
 
 # Usage
 
-Run the script `bench.sh`. It will handle all benchmarking and plot generation.
+Run `cargo run`. It will handle all benchmarking and plot generation.
 
