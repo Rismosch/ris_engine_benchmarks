@@ -1,0 +1,50 @@
+use std::sync::Arc;
+
+use ris_error::RisResult;
+use ris_math::camera::Camera;
+use ris_ptr::ArefCell;
+
+use crate::input::Input;
+use crate::settings::Settings;
+
+#[derive(Clone)]
+pub struct GodState {
+    // events
+    pub event_rebuild_renderers: bool,
+    pub event_window_resized: Option<(u32, u32)>,
+
+    // general
+    pub input: Input,
+    pub camera: Arc<ArefCell<Camera>>,
+
+    pub debug_ui_is_focused: bool,
+
+    // settings
+    pub settings: Settings,
+}
+
+impl GodState {
+    pub fn new(settings: Settings) -> RisResult<Self> {
+        Ok(Self {
+            // events
+            event_rebuild_renderers: false,
+            event_window_resized: None,
+
+            // general
+            input: Input::default(),
+            camera: Default::default(),
+
+            debug_ui_is_focused: false,
+
+            // settings
+            settings,
+        })
+    }
+
+    pub fn reset_events(&mut self) {
+        self.event_rebuild_renderers = false;
+        self.event_window_resized = None;
+
+        self.settings.reset();
+    }
+}

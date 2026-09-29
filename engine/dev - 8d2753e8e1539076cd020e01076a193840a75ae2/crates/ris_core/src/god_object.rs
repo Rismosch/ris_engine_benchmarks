@@ -1,0 +1,180 @@
+use ris_asset::assets;
+use sdl2::EventPump;
+use sdl2::keyboard::KeyboardUtil;
+use sdl2::keyboard::Scancode;
+
+use ris_asset::AssetLoader;
+use ris_asset::RisGodAsset;
+use ris_async::ThreadPool;
+use ris_async::ThreadPoolCreateInfo;
+use ris_async::ThreadPoolGuard;
+use ris_data::gameloop::frame::FrameCalculator;
+use ris_data::god_state::GodState;
+use ris_data::info::app_info::AppInfo;
+use ris_data::settings::Settings;
+use ris_data::settings::serializer::SettingsSerializer;
+use ris_debug::gizmo::GizmoGuard;
+use ris_debug::profiler::ProfilerGuard;
+use ris_error::prelude::*;
+use ris_gpu::core::VulkanCore;
+#[cfg(feature = "ui_helper_enabled")]
+use ris_gpu_renderers::ImguiBackend;
+use ris_input::gamepad_logic::GamepadLogic;
+use ris_ptr::StrongPtr;
+
+//use crate::gpu_frame::GpuFrame;
+//use crate::gpu_frame::Renderer;
+//#[cfg(feature = "ui_helper_enabled")]
+//use crate::ui_helper::UiHelper;
+
+pub struct GodObject {
+    pub app_info: AppInfo,
+    pub asset_loader: StrongPtr<AssetLoader>,
+    pub settings_serializer: SettingsSerializer,
+    pub frame_calculator: FrameCalculator,
+    pub event_pump: EventPump,
+    pub keyboard_util: KeyboardUtil,
+    pub gamepad_logic: GamepadLogic,
+    //pub gpu_frame: GpuFrame,
+    pub state: GodState,
+
+    // guards, must be dropped last.
+    // they are dropped in the order they are listed.
+    pub gizmo_guard: GizmoGuard,
+    pub profiler_guard: ProfilerGuard,
+    pub thread_pool_guard: ThreadPoolGuard,
+}
+
+impl GodObject {
+    pub fn new(app_info: AppInfo) -> RisResult<Self> {
+        // settings
+        let settings_serializer = SettingsSerializer::new(&app_info);
+        let settings = match settings_serializer.deserialize(&app_info) {
+            Some(settings) => settings,
+            None => {
+                let new_settings = Settings::new(&app_info);
+                settings_serializer.serialize(&new_settings)?;
+                new_settings
+            }
+        };
+
+        // job system
+        let cpu_count = app_info.cpu.cpu_count;
+        let threads = crate::determine_thread_count(&app_info, &settings);
+        let set_affinity = settings.job().affinity();
+        let use_parking = settings.job().use_parking();
+        let thread_pool_create_info = ThreadPoolCreateInfo {
+            buffer_capacity: ris_async::DEFAULT_BUFFER_CAPACITY,
+            cpu_count,
+            threads,
+            set_affinity,
+            use_parking,
+        };
+        let thread_pool_guard = ThreadPool::init(thread_pool_create_info)?;
+
+        // assets
+        let asset_loader = AssetLoader::new(&app_info)?;
+
+        // profiling
+        let profiler_guard = ris_debug::profiler::init()?;
+
+        // sdl
+        let sdl_context =
+            sdl2::init().map_err(|e| ris_error::new!("failed to init sdl2: {}", e))?;
+        let event_pump = sdl_context
+            .event_pump()
+            .map_err(|e| ris_error::new!("failed to get event pump: {}", e))?;
+        let keyboard_util = sdl_context.keyboard();
+        let controller_subsystem = sdl_context
+            .game_controller()
+            .map_err(|e| ris_error::new!("failed to get controller subsystem: {}", e))?;
+
+        let gamepad_logic = GamepadLogic::new(controller_subsystem);
+
+        // video
+        let video_subsystem = sdl_context
+            .video()
+            .map_err(|e| ris_error::new!("failed to get video subsystem: {}", e))?;
+
+        let window = video_subsystem
+            .window("ris_engine", 640, 480)
+            .resizable()
+            .maximized()
+            .position_centered()
+            .vulkan()
+            .build()?;
+
+        let vulkan_core = VulkanCore::alloc(&app_info.package.name, &window)?;
+
+        // gizmo
+        let gizmo_guard = ris_debug::gizmo::init()?;
+
+        // imgui
+        #[cfg(feature = "ui_helper_enabled")]
+        let mut imgui_backend = ImguiBackend::init(&app_info)?;
+
+        //// gpu frame
+        //#[cfg(feature = "ui_helper_enabled")]
+        //let ui_helper = UiHelper::new(&app_info)?;
+
+        //let renderer = Renderer::alloc(
+        //    &vulkan_core,
+        //    &god_asset,
+        //    #[cfg(feature = "ui_helper_enabled")]
+        //    imgui_backend.context(),
+        //)?;
+
+        //let gpu_frame = GpuFrame {
+        //    renderer,
+        //    #[cfg(feature = "ui_helper_enabled")]
+        //    imgui_backend,
+        //    #[cfg(feature = "ui_helper_enabled")]
+        //    ui_helper,
+        //    core: vulkan_core,
+        //    window,
+        //};
+
+        // frame calculator
+        let frame_calculator = FrameCalculator::default();
+
+        // god state
+        let mut state = GodState::new(settings)?;
+
+        {
+            let input = &mut state.input;
+            input.keyboard.keymask[0] = Scancode::Return;
+            input.keyboard.keymask[15] = Scancode::W;
+            input.keyboard.keymask[16] = Scancode::S;
+            input.keyboard.keymask[17] = Scancode::A;
+            input.keyboard.keymask[18] = Scancode::D;
+            input.keyboard.keymask[19] = Scancode::Up;
+            input.keyboard.keymask[20] = Scancode::Down;
+            input.keyboard.keymask[21] = Scancode::Left;
+            input.keyboard.keymask[22] = Scancode::Right;
+            input.keyboard.keymask[28] = Scancode::Kp8;
+            input.keyboard.keymask[29] = Scancode::Kp2;
+            input.keyboard.keymask[30] = Scancode::Kp4;
+            input.keyboard.keymask[31] = Scancode::Kp6;
+        }
+
+        // god object
+        let god_object = GodObject {
+            app_info,
+            asset_loader,
+            settings_serializer,
+            frame_calculator,
+            event_pump,
+            keyboard_util,
+            gamepad_logic,
+            //gpu_frame,
+            state,
+
+            // guards
+            gizmo_guard,
+            profiler_guard,
+            thread_pool_guard,
+        };
+
+        Ok(god_object)
+    }
+}

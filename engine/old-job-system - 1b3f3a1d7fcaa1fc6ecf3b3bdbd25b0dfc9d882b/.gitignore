@@ -1,0 +1,24 @@
+# install
+/*.dll
+
+# cargo
+/.cargo
+/target
+/vendor
+Cargo.lock
+
+# IDE
+/.idea
+/.vscode
+
+# cli output
+/cli_out
+
+# assets
+assets/imported
+!assets/imported/**/*.ris_meta
+decompiled_assets
+ris_assets
+
+# temp
+temp/
