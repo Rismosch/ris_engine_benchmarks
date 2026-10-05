@@ -67,7 +67,8 @@ sdl2-sys = "0.38.0"
 shaderc = "0.8"
 
 [dev-dependencies]
-criterion = { version = "0.3", features = ["html_reports"] }
+#criterion = { version = "0.3", features = ["html_reports"] }
+criterion = "0.3"
 
 [features]
 default = [

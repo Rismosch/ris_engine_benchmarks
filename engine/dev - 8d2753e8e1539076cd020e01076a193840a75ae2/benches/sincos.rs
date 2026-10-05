@@ -8,7 +8,7 @@ use criterion::criterion_main;
 use ris_rng::rng::Rng;
 use ris_rng::rng::Seed;
 
-fn sin_cos(c: &mut Criterion) {
+fn sincos(c: &mut Criterion) {
     let mut group = c.benchmark_group("sincos");
 
     let mut rng = Rng::new(Seed::new());
@@ -120,5 +120,5 @@ pub fn bhaskara(x: f32) -> f32 {
     (pi2 - xx4) / (pi2 + xx)
 }
 
-criterion_group!(benches, sin_cos);
+criterion_group!(benches, sincos);
 criterion_main!(benches);
