@@ -1,6 +1,7 @@
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::io::Read;
+use std::path::Path;
 use std::path::PathBuf;
 
 //==============================================================================
@@ -265,10 +266,48 @@ fn bench_normal(arg: impl AsRef<str>) -> Sresult<()> {
         for function_dir in function_dirs.iter() {
             eprintln!("{} - \"{}\"", progress, function_dir.display())
         }
+
+        // read files
+        for function_dir in function_dirs.iter() {
+            let report = BenchmarkReport::deserialize(function_dir)?;
+            eprintln!("report {}: \n{:#?}\n", function_dir.display(), report);
+        }
     }
 
     Ok(())
 }
+
+//==============================================================================
+// Benchmark Report
+//==============================================================================
+#[derive(Debug, Clone)]
+struct BenchmarkReport {
+    benchmark: (),
+    estimates: (),
+    raw: (),
+    sample: (),
+    tukey: (),
+}
+
+impl BenchmarkReport {
+    fn deserialize(path: impl AsRef<Path>) -> Sresult<Self> {
+        let path = path.as_ref();
+        let benchmark_filepath = path.join("new").join("benchmark.json");
+        let estimates_filepath = path.join("new").join("estimates.json");
+        let raw_filepath = path.join("new").join("raw.csv");
+        let sample_filepath = path.join("new").join("sample.json");
+        let tukey_filepath = path.join("new").join("tukey.json");
+
+        Ok(Self {
+            benchmark: (),
+            estimates: (),
+            raw: (),
+            sample: (),
+            tukey: (),
+        })
+    }
+}
+
 
 //==============================================================================
 // run command
