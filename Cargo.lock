@@ -5,3 +5,10 @@ version = 4
 [[package]]
 name = "ris_engine_benchmarks"
 version = "0.1.0"
+dependencies = [
+ "ris_error",
+]
+
+[[package]]
+name = "ris_error"
+version = "0.1.0"

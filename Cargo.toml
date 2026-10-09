@@ -3,4 +3,10 @@ name = "ris_engine_benchmarks"
 version = "0.1.0"
 edition = "2024"
 
+[workspace]
+members = [ 
+    "crates/ris_error",
+]
+
 [dependencies]
+ris_error = { path = "crates/ris_error" }

@@ -1,8 +1,12 @@
-use std::fmt::Debug;
-use std::fmt::Display;
+mod benchmark_report;
+mod json;
+
 use std::io::Read;
-use std::path::Path;
 use std::path::PathBuf;
+
+use ris_error::prelude::*;
+
+use crate::benchmark_report::Report;
 
 //==============================================================================
 // Constants
@@ -25,57 +29,6 @@ const ALL_ARGS: &[&str] = &[
 ];
 
 //==============================================================================
-// Sresult
-//==============================================================================
-pub type Sresult<T> = Result<T, Serror>;
-
-#[derive(Debug, Clone)]
-pub struct Serror(String);
-
-impl Serror {
-    fn new_result<T>(message: impl AsRef<str>) -> Sresult<T> {
-        Err(Self(message.as_ref().to_string()))
-    }
-}
-
-impl Display for Serror {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl<E: std::error::Error + 'static> From<E> for Serror {
-    fn from(value: E) -> Self {
-        Self(value.to_string())
-    }
-}
-
-impl From<Serror> for String {
-    fn from(value: Serror) -> Self {
-        value.0.clone()
-    }
-}
-
-pub trait Extensions<T> {
-    fn sexpect(self, msg: &str) -> Sresult<T>;
-}
-
-impl<T> Extensions<T> for Option<T> {
-    fn sexpect(self, msg: &str) -> Sresult<T> {
-        self.ok_or("Option was None").sexpect(msg)
-    }
-}
-
-impl<T, E: std::fmt::Display> Extensions<T> for Result<T, E> {
-    fn sexpect(self, msg: &str) -> Sresult<T> {
-        match self {
-            Ok(value) => Ok(value),
-            Err(e) => Serror::new_result(format!("expected {}. error: {}", msg, e)),
-        }
-    }
-}
-
-//==============================================================================
 // Harness
 //==============================================================================
 fn main() -> Result<std::process::ExitCode, String>{
@@ -87,7 +40,7 @@ fn main() -> Result<std::process::ExitCode, String>{
     }
 
     let arg = raw_args[1].trim().to_lowercase();
-    bench(arg)?;
+    bench(arg).map_err(|e| e.to_string())?;
 
     Ok(0.into())
 }
@@ -106,7 +59,7 @@ fn print_help(message: impl AsRef<str>) {
     eprintln!();
 }
 
-fn bench(arg: impl AsRef<str>) -> Sresult<()> {
+fn bench(arg: impl AsRef<str>) -> RisResult<()> {
     let arg = arg.as_ref();
 
     match arg {
@@ -125,7 +78,7 @@ fn bench(arg: impl AsRef<str>) -> Sresult<()> {
         _ => {
             let message = format!("unknown arg: \"{}\"", arg);
             print_help(&message);
-            return Serror::new_result(&message);
+            return ris_error::new_result!("{}", message);
         }
     }
 }
@@ -133,7 +86,7 @@ fn bench(arg: impl AsRef<str>) -> Sresult<()> {
 //==============================================================================
 // Bench Job
 //==============================================================================
-fn bench_job() -> Sresult<()> {
+fn bench_job() -> RisResult<()> {
     println!("job bench");
     Ok(())
 }
@@ -141,7 +94,7 @@ fn bench_job() -> Sresult<()> {
 //==============================================================================
 // Bench Normal
 //==============================================================================
-fn bench_normal(arg: impl AsRef<str>) -> Sresult<()> {
+fn bench_normal(arg: impl AsRef<str>) -> RisResult<()> {
     let arg = arg.as_ref();
 
     // collect paths
@@ -178,7 +131,7 @@ fn bench_normal(arg: impl AsRef<str>) -> Sresult<()> {
     let line = source_code.lines()
         .filter(|line| line.contains("criterion_group!"))
         .next()
-        .sexpect("source code to define a criterion group")?;
+        .ris_expect("source code to define a criterion group")?;
 
     let groups = line.split(',')
         .skip(1)
@@ -269,7 +222,7 @@ fn bench_normal(arg: impl AsRef<str>) -> Sresult<()> {
 
         // read files
         for function_dir in function_dirs.iter() {
-            let report = BenchmarkReport::deserialize(function_dir)?;
+            let report = Report::deserialize(function_dir)?;
             eprintln!("report {}: \n{:#?}\n", function_dir.display(), report);
         }
     }
@@ -278,48 +231,16 @@ fn bench_normal(arg: impl AsRef<str>) -> Sresult<()> {
 }
 
 //==============================================================================
-// Benchmark Report
-//==============================================================================
-#[derive(Debug, Clone)]
-struct BenchmarkReport {
-    benchmark: (),
-    estimates: (),
-    raw: (),
-    sample: (),
-    tukey: (),
-}
-
-impl BenchmarkReport {
-    fn deserialize(path: impl AsRef<Path>) -> Sresult<Self> {
-        let path = path.as_ref();
-        let benchmark_filepath = path.join("new").join("benchmark.json");
-        let estimates_filepath = path.join("new").join("estimates.json");
-        let raw_filepath = path.join("new").join("raw.csv");
-        let sample_filepath = path.join("new").join("sample.json");
-        let tukey_filepath = path.join("new").join("tukey.json");
-
-        Ok(Self {
-            benchmark: (),
-            estimates: (),
-            raw: (),
-            sample: (),
-            tukey: (),
-        })
-    }
-}
-
-
-//==============================================================================
 // run command
 //==============================================================================
 fn run_command(
     cmd: impl AsRef<str>,
     stdout: Option<&mut String>,
-) -> Sresult<std::process::ExitStatus> {
+) -> RisResult<std::process::ExitStatus> {
     let cmd = cmd.as_ref();
     let splits = cmd.split(' ').map(|x| x.trim()).collect::<Vec<_>>();
     if splits.is_empty() {
-        return Serror::new_result("cannot run empty cmd")
+        return ris_error::new_result!("cannot run empty cmd")
     }
 
     let mut command = std::process::Command::new(splits[0]);
@@ -348,7 +269,7 @@ fn run_command(
     }
 
     if !complete_arg.is_empty() {
-        return Serror::new_result("syntax error: failed to find closing quotation mark");
+        return ris_error::new_result!("syntax error: failed to find closing quotation mark");
     }
 
     if stdout.is_some() {
@@ -362,7 +283,7 @@ fn run_command(
     if let Some(stdout_string) = stdout {
         let process_stdout = match process.stdout.as_mut() {
             Some(stdout) => stdout,
-            None => return Serror::new_result("expect stdout to be Some"),
+            None => return ris_error::new_result!("expect stdout to be Some"),
         };
         process_stdout.read_to_string(stdout_string)?;
     }
