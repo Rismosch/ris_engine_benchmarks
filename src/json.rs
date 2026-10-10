@@ -260,6 +260,22 @@ impl TryFrom<&JsonValue> for f32 {
     }
 }
 
+impl TryFrom<&JsonValue> for f64 {
+    type Error = JsonError;
+
+    fn try_from(value: &JsonValue) -> Result<Self, Self::Error> {
+        let JsonValue::Number(JsonNumber { inner }) = value else {
+            return Err(JsonError::InvalidCast);
+        };
+
+        let Ok(number) = inner.parse() else {
+            return Err(JsonError::InvalidCast);
+        };
+
+        Ok(number)
+    }
+}
+
 impl TryFrom<&JsonValue> for String {
     type Error = JsonError;
 

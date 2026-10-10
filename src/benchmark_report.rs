@@ -35,11 +35,11 @@ pub struct Estimate {
 
 #[derive(Debug, Clone)]
 pub struct Estimates {
-    mean: Estimate,
-    median: Estimate,
-    median_abs_dev: Estimate,
-    slope: Estimate,
-    std_dev: Estimate,
+    mean: Option<Estimate>,
+    median: Option<Estimate>,
+    median_abs_dev: Option<Estimate>,
+    slope: Option<Estimate>,
+    std_dev: Option<Estimate>,
 }
 
 #[derive(Debug, Clone)]
@@ -47,17 +47,27 @@ pub struct Report {
     benchmark: Benchmark,
     estimates: Estimates,
     raw: (),
-    sample: (),
+    sample: Samples,
     tukey: (),
+}
+
+#[derive(Debug, Clone)]
+pub struct Sample {
+    iter: usize,
+    time: f64,
+}
+
+#[derive(Debug, Clone)]
+pub struct Samples {
+    sampling_mode: String,
+    data: Vec<Sample>,
 }
 
 //==============================================================================
 // Conversions
 //==============================================================================
-impl TryFrom<JsonValue> for Benchmark {
-    type Error = RisError;
-
-    fn try_from(value: JsonValue) -> RisResult<Self> {
+impl Benchmark {
+    fn deserialize(value: JsonValue) -> RisResult<Self> {
         let JsonValue::Object(object) = value else {
             return ris_error::new_result!("json was not an object");
         };
@@ -75,28 +85,85 @@ impl TryFrom<JsonValue> for Benchmark {
     }
 }
 
-impl TryFrom<Option<JsonValue>> for Estimate {
-    type Error = RisError;
+impl Estimate {
+    fn deserialize(value: Option<JsonValue>) -> RisResult<Option<Self>> {
+        let object = match value {
+            Some(JsonValue::Object(object)) => object,
+            Some(JsonValue::Null) => return Ok(None),
+            _ => return ris_error::new_result!("value was not an object"),
+        };
 
-    fn try_from(value: Option<JsonValue>) -> Result<Self, Self::Error> {
-        todo!();
+        let confidence_interval_json = object.get::<JsonValue>("confidence_interval");
+        let Some(JsonValue::Object(confidence_interval_object)) = confidence_interval_json else {
+            return ris_error::new_result!("value was not an object");
+        };
+
+        let confidence_interval = ConfidenceInterval {
+            confidence_level: confidence_interval_object.get("confidence_level").ris_expect("member to exist")?,
+            lower_bound: confidence_interval_object.get("lower_bound").ris_expect("member to exist")?,
+            upper_bound: confidence_interval_object.get("upper_bound").ris_expect("member to exist")?,
+        };
+
+        let point_estimate = object.get("point_estimate")
+            .ris_expect("member to exist")?;
+        let standard_error = object.get("standard_error")
+            .ris_expect("member to exist")?;
+
+        Ok(Some(Self {
+            confidence_interval,
+            point_estimate,
+            standard_error,
+        }))
     }
 }
 
-impl TryFrom<JsonValue> for Estimates {
-    type Error = RisError;
-
-    fn try_from(value: JsonValue) -> Result<Self, Self::Error> {
+impl Estimates {
+    fn deserialize(value: JsonValue) -> RisResult<Self> {
         let JsonValue::Object(object) = value else {
             return ris_error::new_result!("json was not an object");
         };
 
         Ok(Self {
-            mean: Estimate::try_from(object.get("mean"))?,
-            median: Estimate::try_from(object.get("slope"))?,
-            median_abs_dev: Estimate::try_from(object.get("median_abs_dev"))?,
-            slope: Estimate::try_from(object.get("slope"))?,
-            std_dev: Estimate::try_from(object.get("std_dev"))?,
+            mean: Estimate::deserialize(object.get("mean"))?,
+            median: Estimate::deserialize(object.get("slope"))?,
+            median_abs_dev: Estimate::deserialize(object.get("median_abs_dev"))?,
+            slope: Estimate::deserialize(object.get("slope"))?,
+            std_dev: Estimate::deserialize(object.get("std_dev"))?,
+        })
+    }
+}
+
+impl Samples {
+    fn deserialize(value: JsonValue) -> RisResult<Self> {
+        let JsonValue::Object(object) = value else {
+            return ris_error::new_result!("json was not an object");
+        };
+
+        let sampling_mode = object.get("sampling_mode").ris_expect("member to exist")?;
+
+        let Some(JsonValue::Array(iters)) = object.get::<JsonValue>("iters") else {
+            return ris_error::new_result!("member to exist");
+        };
+
+        let Some(JsonValue::Array(times)) = object.get::<JsonValue>("times") else {
+            return ris_error::new_result!("member to exist");
+        };
+
+        ris_error::assert!(iters.len() == times.len())?;
+
+        let mut data = Vec::new();
+        for (i, iter) in iters.iter().enumerate() {
+            let time = &times[i];
+            let sample = Sample{
+                iter: f64::try_from(iter)? as usize,
+                time: time.try_into()?,
+            };
+            data.push(sample);
+        }
+
+        Ok(Self{
+            sampling_mode,
+            data,
         })
     }
 }
@@ -116,18 +183,20 @@ impl Report {
         // read benchmark
         let file_content = std::fs::read_to_string(benchmark_filepath)?;
         let json = JsonValue::deserialize(file_content)?;
-        let benchmark = Benchmark::try_from(json)?;
+        let benchmark = Benchmark::deserialize(json)?;
 
         // read estimates
         let file_content = std::fs::read_to_string(estimates_filepath)?;
         let json = JsonValue::deserialize(file_content)?;
-        let estimates = Estimates::try_from(json)?;
+        let estimates = Estimates::deserialize(json)?;
 
         // read raw
         // todo
 
         // read sample
-        // todo
+        let file_content = std::fs::read_to_string(sample_filepath)?;
+        let json = JsonValue::deserialize(file_content)?;
+        let sample = Samples::deserialize(json)?;
 
         // read tukey
         // todo
@@ -136,7 +205,7 @@ impl Report {
             benchmark,
             estimates,
             raw: (),
-            sample: (),
+            sample,
             tukey: (),
         })
     }

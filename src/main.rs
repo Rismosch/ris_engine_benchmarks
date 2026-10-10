@@ -40,7 +40,10 @@ fn main() -> Result<std::process::ExitCode, String>{
     }
 
     let arg = raw_args[1].trim().to_lowercase();
-    bench(arg).map_err(|e| e.to_string())?;
+    bench(arg).map_err(|e| {
+        eprintln!("{:?}", e);
+        format!("{}", e)
+    })?;
 
     Ok(0.into())
 }
