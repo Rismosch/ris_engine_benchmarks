@@ -12,7 +12,7 @@ pub fn run(
     let cmd = cmd.as_ref();
     let splits = cmd.split(' ').map(|x| x.trim()).collect::<Vec<_>>();
     if splits.is_empty() {
-        return ris_error::new_result!("cannot run empty cmd")
+        return ris_error::new_result!("cannot run empty cmd");
     }
 
     let mut command = std::process::Command::new(splits[0]);
@@ -47,7 +47,6 @@ pub fn run(
     if stdout.is_some() {
         command.stdout(std::process::Stdio::piped());
     }
-
 
     eprintln!("running `{}`...", cmd);
 

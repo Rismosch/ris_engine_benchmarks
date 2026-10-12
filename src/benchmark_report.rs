@@ -1,6 +1,6 @@
 use core::f64;
-use std::path::Path;
 use std::io::Read;
+use std::path::Path;
 
 use ris_error::prelude::*;
 
@@ -105,17 +105,16 @@ impl Report {
         ris_error::assert!(!self.raw.is_empty())?;
         ris_error::assert!(points >= 2)?;
 
-        let values = self.raw.iter()
+        let values = self
+            .raw
+            .iter()
             .map(|x| x.iteration_measured_value())
             .collect::<Vec<_>>();
 
         let n = values.len() as f64;
         let mean = values.iter().sum::<f64>() / n;
 
-        let variance = values
-            .iter()
-            .map(|x| (x - mean).powi(2))
-            .sum::<f64>() / n;
+        let variance = values.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / n;
 
         let stddev = variance.sqrt();
 
@@ -135,18 +134,22 @@ impl Report {
 
         let inv = 1.0 / (bandwidth * (2.0 * std::f64::consts::PI).sqrt());
 
-        Ok((0..points).map(|i| {
-            let x = lo + (hi - lo) * i as f64 / (points - 1) as f64;
-            let density = values.iter()
-                .map(|v| {
-                    let z = (x - v) / bandwidth;
-                    (-0.5 * z * z).exp()
-                })
-                .sum::<f64>() * inv / n;
+        Ok((0..points)
+            .map(|i| {
+                let x = lo + (hi - lo) * i as f64 / (points - 1) as f64;
+                let density = values
+                    .iter()
+                    .map(|v| {
+                        let z = (x - v) / bandwidth;
+                        (-0.5 * z * z).exp()
+                    })
+                    .sum::<f64>()
+                    * inv
+                    / n;
 
-            (x, density)
-        })
-        .collect())
+                (x, density)
+            })
+            .collect())
     }
 }
 
@@ -165,8 +168,7 @@ impl Benchmark {
             value_str: object.get("value_str"),
             throughput: object.get("throughput"),
             full_id: object.get("full_id").ris_expect("member to exist")?,
-            directory_name: object.get("directory_name")
-                .ris_expect("member to exist")?,
+            directory_name: object.get("directory_name").ris_expect("member to exist")?,
             title: object.get("title").ris_expect("member to exist")?,
         })
     }
@@ -186,15 +188,19 @@ impl Estimate {
         };
 
         let confidence_interval = ConfidenceInterval {
-            confidence_level: confidence_interval_object.get("confidence_level").ris_expect("member to exist")?,
-            lower_bound: confidence_interval_object.get("lower_bound").ris_expect("member to exist")?,
-            upper_bound: confidence_interval_object.get("upper_bound").ris_expect("member to exist")?,
+            confidence_level: confidence_interval_object
+                .get("confidence_level")
+                .ris_expect("member to exist")?,
+            lower_bound: confidence_interval_object
+                .get("lower_bound")
+                .ris_expect("member to exist")?,
+            upper_bound: confidence_interval_object
+                .get("upper_bound")
+                .ris_expect("member to exist")?,
         };
 
-        let point_estimate = object.get("point_estimate")
-            .ris_expect("member to exist")?;
-        let standard_error = object.get("standard_error")
-            .ris_expect("member to exist")?;
+        let point_estimate = object.get("point_estimate").ris_expect("member to exist")?;
+        let standard_error = object.get("standard_error").ris_expect("member to exist")?;
 
         Ok(Some(Self {
             confidence_interval,
@@ -226,29 +232,27 @@ impl Raw {
 
         for line in value.lines().skip(1) {
             let mut entries = line.split(',');
-            let group = entries.next()
-                .ris_expect("group to exist")?
-                .to_string();
-            let function = entries.next()
-                .ris_expect("function to exist")?
-                .to_string();
-            let value = entries.next()
-                .ris_expect("value to exist")?
-                .to_string();
-            let throughput_num = entries.next()
+            let group = entries.next().ris_expect("group to exist")?.to_string();
+            let function = entries.next().ris_expect("function to exist")?.to_string();
+            let value = entries.next().ris_expect("value to exist")?.to_string();
+            let throughput_num = entries
+                .next()
                 .ris_expect("throughput_num to exist")?
                 .to_string();
-            let throughput_type = entries.next()
+            let throughput_type = entries
+                .next()
                 .ris_expect("throughput_type to exist")?
                 .to_string();
-            let sample_measured_value = entries.next()
+            let sample_measured_value = entries
+                .next()
                 .ris_expect("sample_measured_value to exist")?
                 .parse()?;
             let unit = match entries.next().ris_expect("unit to exist")? {
                 "ns" => Unit::ns,
                 unit => return ris_error::new_result!("unkown unit {}", unit),
             };
-            let iteration_count = entries.next()
+            let iteration_count = entries
+                .next()
                 .ris_expect("iteration_count to exist")?
                 .parse()?;
 
@@ -289,14 +293,14 @@ impl Samples {
         let mut data = Vec::new();
         for (i, iter) in iters.iter().enumerate() {
             let time = &times[i];
-            let sample = Sample{
+            let sample = Sample {
                 iter: f64::try_from(iter)? as usize,
                 time: time.try_into()?,
             };
             data.push(sample);
         }
 
-        Ok(Self{
+        Ok(Self {
             sampling_mode,
             data,
         })
@@ -345,7 +349,6 @@ impl Report {
         let file_content = std::fs::read_to_string(raw_filepath)?;
         let raw = Raw::deserialize(file_content)?;
 
-
         // read sample
         let file_content = std::fs::read_to_string(sample_filepath)?;
         let json = JsonValue::deserialize(file_content)?;
@@ -365,4 +368,3 @@ impl Report {
         })
     }
 }
-

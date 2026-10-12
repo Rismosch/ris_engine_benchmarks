@@ -1,5 +1,4 @@
 use std::io::Write;
-use std::os::unix::process;
 use std::process::Child;
 use std::process::Command;
 use std::process::Stdio;
@@ -26,7 +25,7 @@ impl Gnuplot {
             .spawn()
             .ris_expect("gnuplot to spawn")?;
 
-        Ok(Self{process})
+        Ok(Self { process })
     }
 
     pub fn run(&mut self, command: impl AsRef<str>) -> RisResult<()> {

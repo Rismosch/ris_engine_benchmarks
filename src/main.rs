@@ -3,8 +3,7 @@ mod cli;
 mod gnuplot;
 mod json;
 
-use core::f64;
-use std::os::unix::process;
+use std::path::Path;
 use std::path::PathBuf;
 
 use ris_error::prelude::*;
@@ -24,18 +23,12 @@ const ARG_MATH: &str = "math";
 const ARG_SINCOS: &str = "sincos";
 const ARG_VEC: &str = "vec";
 
-const ALL_ARGS: &[&str] = &[
-    ARG_JOB,
-    ARG_MAP,
-    ARG_MATH,
-    ARG_SINCOS,
-    ARG_VEC,
-];
+const ALL_ARGS: &[&str] = &[ARG_JOB, ARG_MAP, ARG_MATH, ARG_SINCOS, ARG_VEC];
 
 //==============================================================================
 // Harness
 //==============================================================================
-fn main() -> Result<std::process::ExitCode, String>{
+fn main() -> Result<std::process::ExitCode, String> {
     let raw_args = std::env::args().collect::<Vec<_>>();
 
     if raw_args.len() != 2 {
@@ -76,7 +69,7 @@ fn bench(arg: impl AsRef<str>) -> RisResult<()> {
             }
 
             Ok(())
-        },
+        }
         _ if arg == ARG_JOB => bench_job(),
         _ if arg == ARG_MAP => bench_normal(arg),
         _ if arg == ARG_MATH => bench_normal(arg),
@@ -111,17 +104,11 @@ fn bench_normal(arg: impl AsRef<str>) -> RisResult<()> {
         .join("engine")
         .join(ENGINE_CURRENT_SNAPSHOT);
 
-    let source_filepath = engine_dir
-        .join("benches")
-        .join(format!("{}.rs",&arg));
+    let source_filepath = engine_dir.join("benches").join(format!("{}.rs", &arg));
 
-    let target_dir = engine_dir
-        .join("target")
-        .join("criterion");
+    let target_dir = engine_dir.join("target").join("criterion");
 
-    let out_dir = root_dir
-        .join("target")
-        .join("plots");
+    let out_dir = root_dir.join("target").join("plots");
 
     eprintln!();
     eprintln!("source_filepath: {}", source_filepath.display());
@@ -134,7 +121,7 @@ fn bench_normal(arg: impl AsRef<str>) -> RisResult<()> {
     std::env::set_current_dir(engine_dir)?;
 
     // benchmark
-    //cli::run(format!("cargo bench {}", arg), None)?;
+    cli::run(format!("cargo bench {}", arg), None)?;
 
     // collect benchmark groups
     eprintln!("collect benchmark_groups...");
@@ -142,7 +129,8 @@ fn bench_normal(arg: impl AsRef<str>) -> RisResult<()> {
     let source_code = std::fs::read_to_string(source_filepath)?;
 
     let lines = source_code.lines().collect::<Vec<_>>();
-    let start_line = lines.iter()
+    let start_line = lines
+        .iter()
         .position(|line| line.contains("criterion_group!"))
         .ris_expect("source code to define a criterion group")?;
     let mut group_string = String::new();
@@ -154,29 +142,28 @@ fn bench_normal(arg: impl AsRef<str>) -> RisResult<()> {
         }
     }
 
-    let groups = group_string.split(',')
+    let groups = group_string
+        .split(',')
         .skip(1)
-        .map(|x| x
-            .trim()
-            .trim_end_matches(';').trim_end()
-            .trim_end_matches(')').trim_end()
-        )
+        .map(|x| {
+            x.trim()
+                .trim_end_matches(';')
+                .trim_end()
+                .trim_end_matches(')')
+                .trim_end()
+        })
         .filter(|x| !x.is_empty())
         .collect::<Vec<_>>();
 
-    let s = if groups.len() != 1 {
-        "s"
-    } else {
-        ""
-    };
-    eprintln!("found {} group{}:",groups.len(),s);
+    let s = if groups.len() != 1 { "s" } else { "" };
+    eprintln!("found {} group{}:", groups.len(), s);
     for group in groups.iter() {
         eprintln!(" - \"{}\"", group);
     }
 
     // collect group directories
     let mut group_dirs = Vec::new();
-    
+
     let entries = std::fs::read_dir(&target_dir)?;
     for entry in entries {
         let entry = entry?;
@@ -195,11 +182,7 @@ fn bench_normal(arg: impl AsRef<str>) -> RisResult<()> {
         }
     }
 
-    let ies = if group_dirs.len() != 1 {
-        "ies"
-    } else {
-        "y"
-    };
+    let ies = if group_dirs.len() != 1 { "ies" } else { "y" };
     eprintln!("found {} matching director{}:", group_dirs.len(), ies);
     for group in group_dirs.iter() {
         eprintln!(" - \"{}\"", group.display());
@@ -208,10 +191,10 @@ fn bench_normal(arg: impl AsRef<str>) -> RisResult<()> {
     // find bench functions
     for (i, group_dir) in group_dirs.iter().enumerate() {
         let group_name = group_dir.strip_prefix(&target_dir)?.display();
-        let progress = format!("[{}/{}]", i+1, group_dirs.len());
+        let progress = format!("[{}/{}]", i + 1, group_dirs.len());
 
         eprintln!();
-        eprintln!("{} find bench functions for {}... ",progress,group_name);
+        eprintln!("{} find bench functions for {}... ", progress, group_name);
 
         let mut function_dirs = Vec::new();
 
@@ -232,12 +215,13 @@ fn bench_normal(arg: impl AsRef<str>) -> RisResult<()> {
             function_dirs.push(entry_path);
         }
 
-        let s = if function_dirs.len() != 1 {
-            "s"
-        } else {
-            ""
-        };
-        eprintln!("{} found {} bench function{}:", progress, function_dirs.len(), s);
+        let s = if function_dirs.len() != 1 { "s" } else { "" };
+        eprintln!(
+            "{} found {} bench function{}:",
+            progress,
+            function_dirs.len(),
+            s
+        );
         for function_dir in function_dirs.iter() {
             eprintln!("{} - \"{}\"", progress, function_dir.display())
         }
@@ -250,15 +234,8 @@ fn bench_normal(arg: impl AsRef<str>) -> RisResult<()> {
             reports.push(report);
         }
 
-        let s = if reports.len() != 1 {
-            "s"
-        } else {
-            ""
-        };
+        let s = if reports.len() != 1 { "s" } else { "" };
         eprintln!("{} found {} report{}", progress, reports.len(), s);
-        
-        // spawn gnuplot
-        let mut gnuplot = Gnuplot::open()?;
 
         // build plots
         eprintln!("{} build plots...", progress);
@@ -267,94 +244,88 @@ fn bench_normal(arg: impl AsRef<str>) -> RisResult<()> {
         let output_filepath = out_dir.join(format!("{}.svg", group_name));
         eprintln!("{} output file: {}", progress, output_filepath.display());
 
-        gnuplot.run("set terminal svg enhanced font 'Arial,12'")?;
-        gnuplot.run(format!("set output '{}'", output_filepath.display()))?;
-
-        gnuplot.run(format!(
-            "set title '{}: Violin plot'",
-            group_name.to_string().replace("_", "\\_"),
-        ))?;
-        gnuplot.run(format!("set ylabel 'Average time (ms)'"))?;
-        gnuplot.run(format!("set xlabel ''"))?;
-        gnuplot.run("set grid ytics")?;
-
-        gnuplot.run(format!("set xtics rotate by 45 right"))?;
-        for (i, report) in reports.iter().enumerate() {
-            let pre = if i == 0 {
-                "set xtics ("
-            } else {
-                ""
-            };
-
-            let post = if i != reports.len() - 1 {
-                ", \\"
-            } else {
-                ")"
-            };
-
-            let i = i + 1;
-
-            gnuplot.run(format!(
-                "{}'{}' {}{}",
-                pre,
-                report.benchmark.full_id.replace("_", "\\_"),
-                i,
-                post,
-            ))?;
-        }
-
-        gnuplot.run(format!("set xrange [0.5:{}.5]", reports.len()))?;
-        gnuplot.run("set style fill solid 1")?;
-        gnuplot.run("set key off")?;
-
-
-        for (i, report) in reports.iter().enumerate() {
-            let i = i + 1;
-
-            gnuplot.run(format!("$D{} << EOD", i))?;
-            for (x, density) in report.kde(200)? {
-                gnuplot.run(format!("{} {}", x, density))?;
-            }
-            gnuplot.run(format!("EOD"))?;
-        }
-
-        for (i, _) in reports.iter().enumerate() {
-            let i = i + 1;
-            gnuplot.run(format!("stats $D{} using 2 nooutput", i))?;
-            gnuplot.run(format!("max{} = STATS_max", i))?;
-        }
-
-        gnuplot.run("width = 0.4")?;
-        gnuplot.run("color = '#0000ff'")?;
-
-        for (i, _) in reports.iter().enumerate() {
-            let pre = if i == 0 {
-                "plot "
-            } else {
-                ""
-            };
-            let post = if i != reports.len() - 1 {
-                ", \\"
-            } else {
-                ""
-            };
-
-            let i = i + 1;
-
-            gnuplot.run(format!(
-                "{}$D{} using ({} + width*$2/max{}):($1/1e6) with filledcurves x1={} lc rgb color, \\", pre, i, i, i, i,
-            ))?;
-            gnuplot.run(format!(
-                "'' using ({} - width*$2/max{}):($1/1e6) with filledcurves x1={} lc rgb color{}", i, i, i, post,
-            ))?;
-        }
-
-        // kill gnuplot
-        //eprint!("{} ", progress);
-        drop(gnuplot);
+        plot(group_name.to_string(), output_filepath, &reports)?;
     }
 
     Ok(())
 }
 
+fn plot(
+    title: impl AsRef<str>,
+    output_filepath: impl AsRef<Path>,
+    reports: &[Report],
+) -> RisResult<()> {
+    let title = title.as_ref();
+    let output_filepath = output_filepath.as_ref();
 
+    let mut gnuplot = Gnuplot::open()?;
+
+    gnuplot.run("set terminal svg enhanced font 'Arial,12'")?;
+    gnuplot.run(format!("set output '{}'", output_filepath.display()))?;
+
+    gnuplot.run(format!(
+        "set title '{}: Violin plot'",
+        title.replace("_", "\\_"),
+    ))?;
+    gnuplot.run(format!("set ylabel 'Average time (ms)'"))?;
+    gnuplot.run(format!("set xlabel ''"))?;
+    gnuplot.run("set grid ytics")?;
+
+    gnuplot.run(format!("set xtics rotate by 45 right"))?;
+    for (i, report) in reports.iter().enumerate() {
+        let pre = if i == 0 { "set xtics (" } else { "" };
+
+        let post = if i != reports.len() - 1 { ", \\" } else { ")" };
+
+        let i = i + 1;
+
+        gnuplot.run(format!(
+            "{}'{}' {}{}",
+            pre,
+            report.benchmark.full_id.replace("_", "\\_"),
+            i,
+            post,
+        ))?;
+    }
+
+    gnuplot.run(format!("set xrange [0.5:{}.5]", reports.len()))?;
+    gnuplot.run("set style fill solid 0.5")?;
+    gnuplot.run("set key off")?;
+
+    for (i, report) in reports.iter().enumerate() {
+        let i = i + 1;
+
+        gnuplot.run(format!("$D{} << EOD", i))?;
+        for (x, density) in report.kde(200)? {
+            gnuplot.run(format!("{} {}", x, density))?;
+        }
+        gnuplot.run(format!("EOD"))?;
+    }
+
+    for (i, _) in reports.iter().enumerate() {
+        let i = i + 1;
+        gnuplot.run(format!("stats $D{} using 2 nooutput", i))?;
+        gnuplot.run(format!("max{} = STATS_max", i))?;
+    }
+
+    gnuplot.run("width = 0.4")?;
+    gnuplot.run("color = '#0000ff'")?;
+
+    for (i, _) in reports.iter().enumerate() {
+        let pre = if i == 0 { "plot " } else { "" };
+        let post = if i != reports.len() - 1 { ", \\" } else { "" };
+
+        let i = i + 1;
+
+        gnuplot.run(format!(
+            "{}$D{} using ({} + width*$2/max{}):($1/1e6) with filledcurves x1={} lc rgb color, \\",
+            pre, i, i, i, i,
+        ))?;
+        gnuplot.run(format!(
+            "'' using ({} - width*$2/max{}):($1/1e6) with filledcurves x1={} lc rgb color{}",
+            i, i, i, post,
+        ))?;
+    }
+
+    Ok(())
+}
