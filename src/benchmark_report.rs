@@ -10,36 +10,36 @@ use crate::json::{JsonObject, JsonValue};
 //==============================================================================
 #[derive(Debug, Clone)]
 pub struct Benchmark {
-    group_id: String,
-    function_id: String,
-    value_str: Option<String>,
-    throughput: Option<String>,
-    full_id: String,
-    directory_name: String,
-    title: String,
+    pub group_id: String,
+    pub function_id: String,
+    pub value_str: Option<String>,
+    pub throughput: Option<String>,
+    pub full_id: String,
+    pub directory_name: String,
+    pub title: String,
 }
 
 #[derive(Debug, Clone)]
 pub struct ConfidenceInterval {
-    confidence_level: f64,
-    lower_bound: f64,
-    upper_bound: f64,
+    pub confidence_level: f64,
+    pub lower_bound: f64,
+    pub upper_bound: f64,
 }
 
 #[derive(Debug, Clone)]
 pub struct Estimate {
-    confidence_interval: ConfidenceInterval,
-    point_estimate: f64,
-    standard_error: f64,
+    pub confidence_interval: ConfidenceInterval,
+    pub point_estimate: f64,
+    pub standard_error: f64,
 }
 
 #[derive(Debug, Clone)]
 pub struct Estimates {
-    mean: Option<Estimate>,
-    median: Option<Estimate>,
-    median_abs_dev: Option<Estimate>,
-    slope: Option<Estimate>,
-    std_dev: Option<Estimate>,
+    pub mean: Option<Estimate>,
+    pub median: Option<Estimate>,
+    pub median_abs_dev: Option<Estimate>,
+    pub slope: Option<Estimate>,
+    pub std_dev: Option<Estimate>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -49,39 +49,39 @@ enum Unit {
 
 #[derive(Debug, Clone)]
 pub struct Raw {
-    group: String,
-    function: String,
-    value: String,
-    throughput_num: String,
-    throughput_type: String,
-    sample_measured_value: f64,
-    unit: Unit,
-    iteration_count: usize,
+    pub group: String,
+    pub function: String,
+    pub value: String,
+    pub throughput_num: String,
+    pub throughput_type: String,
+    pub sample_measured_value: f64,
+    pub unit: Unit,
+    pub iteration_count: usize,
 }
 
 #[derive(Debug, Clone)]
 pub struct Report {
-    benchmark: Benchmark,
-    estimates: Estimates,
-    raw: Vec<Raw>,
-    sample: Samples,
-    tukey: Tukey,
+    pub benchmark: Benchmark,
+    pub estimates: Estimates,
+    pub raw: Vec<Raw>,
+    pub sample: Samples,
+    pub tukey: Tukey,
 }
 
 #[derive(Debug, Clone)]
 pub struct Sample {
-    iter: usize,
-    time: f64,
+    pub iter: usize,
+    pub time: f64,
 }
 
 #[derive(Debug, Clone)]
 pub struct Samples {
-    sampling_mode: String,
-    data: Vec<Sample>,
+    pub sampling_mode: String,
+    pub data: Vec<Sample>,
 }
 
 #[derive(Debug, Clone)]
-pub struct Tukey(Vec<f64>);
+pub struct Tukey(pub Vec<f64>);
 
 //==============================================================================
 // Conversions

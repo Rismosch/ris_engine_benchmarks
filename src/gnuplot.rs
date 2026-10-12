@@ -31,6 +31,7 @@ impl Gnuplot {
 
     pub fn run(&mut self, command: impl AsRef<str>) -> RisResult<()> {
         let command = command.as_ref();
+        eprintln!("gnuplot> {}", command);
         let stdin = self.process.stdin.as_mut().ris_expect("stdin to exist")?;
         writeln!(stdin, "{}", command)?;
         Ok(())

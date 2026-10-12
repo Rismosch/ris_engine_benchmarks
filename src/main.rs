@@ -3,6 +3,7 @@ mod cli;
 mod gnuplot;
 mod json;
 
+use core::f64;
 use std::os::unix::process;
 use std::path::PathBuf;
 
@@ -256,8 +257,53 @@ fn bench_normal(arg: impl AsRef<str>) -> RisResult<()> {
         // build plots
         eprintln!("{} build plots...", progress);
 
-        gnuplot.run("plot sin(x)")?;
-        std::thread::sleep(std::time::Duration::from_secs(2));
+        gnuplot.run("set terminal pngcairo size 700,500 enhanced")?;
+        gnuplot.run("set output '/home/simon/repos/benchmarks/violin.png'")?;
+
+        for (i, report) in reports.iter().enumerate() {
+            let i = i + 1;
+            gnuplot.run(format!("set table $D{}", i))?;
+            gnuplot.run("plot '-' using 1:(1) smooth kdensity")?;
+
+            for raw in report.raw.iter() {
+                gnuplot.run(format!("{}", raw.sample_measured_value))?;
+            }
+
+            gnuplot.run("e")?;
+            gnuplot.run("unset table")?;
+        }
+
+        for (i, _) in reports.iter().enumerate() {
+            let i = i + 1;
+            gnuplot.run(format!("stats $D{} using 2 nooutput", i))?;
+            gnuplot.run(format!("max{} = STATS_max", i))?;
+        }
+
+        gnuplot.run("width = 0.4")?;
+
+        for (i, _) in reports.iter().enumerate() {
+            let pre = if i == 0 {
+                "plot "
+            } else {
+                ""
+            };
+
+            let post = if i != reports.len() - 1 {
+            //let post = if i != n - 1 {
+                ", \\"
+            } else {
+                ""
+            };
+
+            let i = i + 1;
+
+            gnuplot.run(format!(
+                "{}$D{} using ({} + width*$2/max{}):1 with filledcurves x1={}, \\", pre, i, i, i, i,
+            ))?;
+            gnuplot.run(format!(
+                "'' using ({} - width*$2/max{}):1 with filledcurves x1={}{}", i, i, i, post,
+            ))?;
+        }
 
         // kill gnuplot
         eprint!("{} ", progress);
