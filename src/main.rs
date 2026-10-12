@@ -1,12 +1,15 @@
 mod benchmark_report;
 mod cli;
+mod gnuplot;
 mod json;
 
+use std::os::unix::process;
 use std::path::PathBuf;
 
 use ris_error::prelude::*;
 
 use crate::benchmark_report::Report;
+use crate::gnuplot::Gnuplot;
 
 //==============================================================================
 // Constants
@@ -233,10 +236,32 @@ fn bench_normal(arg: impl AsRef<str>) -> RisResult<()> {
         }
 
         // read files
+        eprintln!("{} read files...", progress);
+        let mut reports = Vec::new();
         for function_dir in function_dirs.iter() {
             let report = Report::deserialize(function_dir)?;
-            //eprintln!("report {}: \n{:#?}\n", function_dir.display(), report);
+            reports.push(report);
         }
+
+        let s = if reports.len() != 1 {
+            "s"
+        } else {
+            ""
+        };
+        eprintln!("{} found {} report{}", progress, reports.len(), s);
+        
+        // spawn gnuplot
+        let mut gnuplot = Gnuplot::open()?;
+
+        // build plots
+        eprintln!("{} build plots...", progress);
+
+        gnuplot.run("plot sin(x)")?;
+        std::thread::sleep(std::time::Duration::from_secs(2));
+
+        // kill gnuplot
+        eprint!("{} ", progress);
+        drop(gnuplot);
     }
 
     Ok(())
