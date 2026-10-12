@@ -1,3 +1,4 @@
+use core::f64;
 use std::path::Path;
 use std::io::Read;
 
@@ -84,14 +85,68 @@ pub struct Samples {
 pub struct Tukey(pub Vec<f64>);
 
 //==============================================================================
-// Members
+// Methods
 //==============================================================================
 impl Raw {
+    pub fn iteration_measured_value(&self) -> f64 {
+        self.sample_measured_value / self.iteration_count as f64
+    }
+
     pub fn iteration_time(&self) -> std::time::Duration {
-        let measured_iteration = self.sample_measured_value / self.iteration_count as f64;
+        let measured_iteration = self.iteration_measured_value();
         match self.unit {
             Unit::ns => std::time::Duration::from_nanos(measured_iteration.round() as u64),
         }
+    }
+}
+
+impl Report {
+    pub fn kde(&self, points: usize) -> RisResult<Vec<(f64, f64)>> {
+        ris_error::assert!(!self.raw.is_empty())?;
+        ris_error::assert!(points >= 2)?;
+
+        let values = self.raw.iter()
+            .map(|x| x.iteration_measured_value())
+            .collect::<Vec<_>>();
+
+        let n = values.len() as f64;
+        let mean = values.iter().sum::<f64>() / n;
+
+        let variance = values
+            .iter()
+            .map(|x| (x - mean).powi(2))
+            .sum::<f64>() / n;
+
+        let stddev = variance.sqrt();
+
+        // Silverman's rule of thumb
+        let bandwidth = if stddev > 0.0 {
+            1.06 * stddev * n.powf(-0.2)
+        } else {
+            (mean.abs() * 1e-3).max(1.0)
+        };
+
+        let min = values.iter().copied().fold(f64::INFINITY, f64::min);
+        let max = values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+
+        // extend the grid beyond the observations to show KDE tails
+        let lo = min - 4.0 * bandwidth;
+        let hi = max + 4.0 * bandwidth;
+
+        let inv = 1.0 / (bandwidth * (2.0 * std::f64::consts::PI).sqrt());
+
+        Ok((0..points).map(|i| {
+            let x = lo + (hi - lo) * i as f64 / (points - 1) as f64;
+            let density = values.iter()
+                .map(|v| {
+                    let z = (x - v) / bandwidth;
+                    (-0.5 * z * z).exp()
+                })
+                .sum::<f64>() * inv / n;
+
+            (x, density)
+        })
+        .collect())
     }
 }
 

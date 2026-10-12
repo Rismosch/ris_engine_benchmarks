@@ -105,27 +105,33 @@ fn bench_normal(arg: impl AsRef<str>) -> RisResult<()> {
     let arg = arg.as_ref();
 
     // collect paths
-    let cargo_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+    let root_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+
+    let engine_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("engine")
         .join(ENGINE_CURRENT_SNAPSHOT);
 
-    let source_filepath = cargo_dir
+    let source_filepath = engine_dir
         .join("benches")
         .join(format!("{}.rs",&arg));
 
-    let target_dir = cargo_dir
+    let target_dir = engine_dir
         .join("target")
         .join("criterion");
 
+    let out_dir = root_dir
+        .join("target")
+        .join("plots");
 
     eprintln!();
     eprintln!("source_filepath: {}", source_filepath.display());
     eprintln!("target_dir:      {}", target_dir.display());
+    eprintln!("out_dir:         {}", out_dir.display());
     eprintln!();
 
     // change dir
-    eprintln!("change directory... {}", cargo_dir.display());
-    std::env::set_current_dir(cargo_dir)?;
+    eprintln!("change directory... {}", engine_dir.display());
+    std::env::set_current_dir(engine_dir)?;
 
     // benchmark
     //cli::run(format!("cargo bench {}", arg), None)?;
@@ -257,37 +263,59 @@ fn bench_normal(arg: impl AsRef<str>) -> RisResult<()> {
         // build plots
         eprintln!("{} build plots...", progress);
 
-        gnuplot.run("set terminal pngcairo size 700,500 enhanced")?;
-        gnuplot.run("set output '/home/simon/repos/benchmarks/violin.png'")?;
+        std::fs::create_dir_all(&out_dir)?;
+        let output_filepath = out_dir.join(format!("{}.svg", group_name));
+        eprintln!("{} output file: {}", progress, output_filepath.display());
 
-        //gnuplot.run("set samples 200")?;
-        //gnuplot.run("set xrange [3.0e7:6.0e7]")?;
+        gnuplot.run("set terminal svg enhanced font 'Arial,12'")?;
+        gnuplot.run(format!("set output '{}'", output_filepath.display()))?;
 
+        gnuplot.run(format!(
+            "set title '{}: Violin plot'",
+            group_name.to_string().replace("_", "\\_"),
+        ))?;
+        gnuplot.run(format!("set ylabel 'Average time (ms)'"))?;
+        gnuplot.run(format!("set xlabel ''"))?;
+        gnuplot.run("set grid ytics")?;
+
+        gnuplot.run(format!("set xtics rotate by 45 right"))?;
         for (i, report) in reports.iter().enumerate() {
-            let min = report.raw
-                .iter()
-                .min_by(|a, b| a.iteration_time().cmp(&b.iteration_time()))
-                .ris_expect("the report to not be empty")?;
-            let max = report.raw
-                .iter()
-                .max_by(|a, b| a.iteration_time().cmp(&b.iteration_time()))
-                .ris_expect("the report to not be empty")?;
-            eprintln!(
-                "my found min/max: {:?}/{:?}",
-                min.iteration_time(),
-                max.iteration_time(),
-            );
+            let pre = if i == 0 {
+                "set xtics ("
+            } else {
+                ""
+            };
+
+            let post = if i != reports.len() - 1 {
+                ", \\"
+            } else {
+                ")"
+            };
 
             let i = i + 1;
-            gnuplot.run(format!("set table $D{}", i))?;
-            gnuplot.run("plot '-' using 1:(1) smooth kdensity")?;
 
-            for raw in report.raw.iter() {
-                gnuplot.run(format!("{}", raw.iteration_time().as_nanos()))?;
+            gnuplot.run(format!(
+                "{}'{}' {}{}",
+                pre,
+                report.benchmark.full_id.replace("_", "\\_"),
+                i,
+                post,
+            ))?;
+        }
+
+        gnuplot.run(format!("set xrange [0.5:{}.5]", reports.len()))?;
+        gnuplot.run("set style fill solid 1")?;
+        gnuplot.run("set key off")?;
+
+
+        for (i, report) in reports.iter().enumerate() {
+            let i = i + 1;
+
+            gnuplot.run(format!("$D{} << EOD", i))?;
+            for (x, density) in report.kde(200)? {
+                gnuplot.run(format!("{} {}", x, density))?;
             }
-
-            gnuplot.run("e")?;
-            gnuplot.run("unset table")?;
+            gnuplot.run(format!("EOD"))?;
         }
 
         for (i, _) in reports.iter().enumerate() {
@@ -297,6 +325,7 @@ fn bench_normal(arg: impl AsRef<str>) -> RisResult<()> {
         }
 
         gnuplot.run("width = 0.4")?;
+        gnuplot.run("color = '#0000ff'")?;
 
         for (i, _) in reports.iter().enumerate() {
             let pre = if i == 0 {
@@ -304,7 +333,6 @@ fn bench_normal(arg: impl AsRef<str>) -> RisResult<()> {
             } else {
                 ""
             };
-
             let post = if i != reports.len() - 1 {
                 ", \\"
             } else {
@@ -314,10 +342,10 @@ fn bench_normal(arg: impl AsRef<str>) -> RisResult<()> {
             let i = i + 1;
 
             gnuplot.run(format!(
-                "{}$D{} using ({} + width*$2/max{}):1 with filledcurves x1={}, \\", pre, i, i, i, i,
+                "{}$D{} using ({} + width*$2/max{}):($1/1e6) with filledcurves x1={} lc rgb color, \\", pre, i, i, i, i,
             ))?;
             gnuplot.run(format!(
-                "'' using ({} - width*$2/max{}):1 with filledcurves x1={}{}", i, i, i, post,
+                "'' using ({} - width*$2/max{}):($1/1e6) with filledcurves x1={} lc rgb color{}", i, i, i, post,
             ))?;
         }
 
@@ -328,4 +356,5 @@ fn bench_normal(arg: impl AsRef<str>) -> RisResult<()> {
 
     Ok(())
 }
+
 
