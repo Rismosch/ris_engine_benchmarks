@@ -6,7 +6,7 @@ use criterion::criterion_main;
 use ris_rng::rng::Rng;
 use ris_rng::rng::Seed;
 
-fn abs(c: &mut Criterion) {
+fn math_abs(c: &mut Criterion) {
     let mut group = c.benchmark_group("math_abs");
 
     let mut rng = Rng::new(Seed::new());
@@ -39,7 +39,7 @@ fn abs(c: &mut Criterion) {
     group.finish();
 }
 
-fn negate(c: &mut Criterion) {
+fn math_negate(c: &mut Criterion) {
     let mut group = c.benchmark_group("math_negate");
 
     let mut rng = Rng::new(Seed::new());
@@ -75,7 +75,7 @@ fn negate(c: &mut Criterion) {
     group.finish();
 }
 
-fn log2(c: &mut Criterion) {
+fn math_log2(c: &mut Criterion) {
     let mut group = c.benchmark_group("math_log2");
 
     let mut rng = Rng::new(Seed::new());
@@ -108,7 +108,7 @@ fn log2(c: &mut Criterion) {
     group.finish();
 }
 
-fn exp2(c: &mut Criterion) {
+fn math_exp2(c: &mut Criterion) {
     let mut group = c.benchmark_group("math_exp2");
 
     let mut rng = Rng::new(Seed::new());
@@ -141,7 +141,7 @@ fn exp2(c: &mut Criterion) {
     group.finish();
 }
 
-fn pow(c: &mut Criterion) {
+fn math_pow(c: &mut Criterion) {
     let mut group = c.benchmark_group("math_pow");
 
     let mut rng = Rng::new(Seed::new());
@@ -175,7 +175,7 @@ fn pow(c: &mut Criterion) {
     group.finish();
 }
 
-fn sqrt(c: &mut Criterion) {
+fn math_sqrt(c: &mut Criterion) {
     let mut group = c.benchmark_group("math_sqrt");
 
     let mut rng = Rng::new(Seed::new());
@@ -208,7 +208,7 @@ fn sqrt(c: &mut Criterion) {
     group.finish();
 }
 
-fn inversesqrt(c: &mut Criterion) {
+fn math_inversesqrt(c: &mut Criterion) {
     let mut group = c.benchmark_group("math_inversesqrt");
 
     let mut rng = Rng::new(Seed::new());
@@ -241,7 +241,7 @@ fn inversesqrt(c: &mut Criterion) {
     group.finish();
 }
 
-fn sign(c: &mut Criterion) {
+fn math_sign(c: &mut Criterion) {
     let mut group = c.benchmark_group("math_sign");
 
     let mut rng = Rng::new(Seed::new());
@@ -284,7 +284,7 @@ fn sign(c: &mut Criterion) {
     group.finish();
 }
 
-fn min(c: &mut Criterion) {
+fn math_min(c: &mut Criterion) {
     let mut group = c.benchmark_group("math_min");
 
     let mut rng = Rng::new(Seed::new());
@@ -321,7 +321,7 @@ fn min(c: &mut Criterion) {
     group.finish();
 }
 
-fn max(c: &mut Criterion) {
+fn math_max(c: &mut Criterion) {
     let mut group = c.benchmark_group("math_max");
 
     let mut rng = Rng::new(Seed::new());
@@ -360,15 +360,15 @@ fn max(c: &mut Criterion) {
 
 criterion_group!(
     benches,
-    abs,
-    negate,
-    log2,
-    exp2,
-    pow,
-    sqrt,
-    inversesqrt,
-    sign,
-    min,
-    max,
+    math_abs,
+    math_negate,
+    math_log2,
+    math_exp2,
+    math_pow,
+    math_sqrt,
+    math_inversesqrt,
+    math_sign,
+    math_min,
+    math_max,
 );
 criterion_main!(benches);

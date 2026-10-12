@@ -42,13 +42,30 @@ pub struct Estimates {
     std_dev: Option<Estimate>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum Unit {
+    ns,
+}
+
+#[derive(Debug, Clone)]
+pub struct Raw {
+    group: String,
+    function: String,
+    value: String,
+    throughput_num: String,
+    throughput_type: String,
+    sample_measured_value: f64,
+    unit: Unit,
+    iteration_count: usize,
+}
+
 #[derive(Debug, Clone)]
 pub struct Report {
     benchmark: Benchmark,
     estimates: Estimates,
-    raw: (),
+    raw: Vec<Raw>,
     sample: Samples,
-    tukey: (),
+    tukey: Tukey,
 }
 
 #[derive(Debug, Clone)]
@@ -62,6 +79,9 @@ pub struct Samples {
     sampling_mode: String,
     data: Vec<Sample>,
 }
+
+#[derive(Debug, Clone)]
+pub struct Tukey(Vec<f64>);
 
 //==============================================================================
 // Conversions
@@ -133,6 +153,54 @@ impl Estimates {
     }
 }
 
+impl Raw {
+    fn deserialize(value: String) -> RisResult<Vec<Self>> {
+        let mut data = Vec::new();
+
+        for line in value.lines().skip(1) {
+            let mut entries = line.split(',');
+            let group = entries.next()
+                .ris_expect("group to exist")?
+                .to_string();
+            let function = entries.next()
+                .ris_expect("function to exist")?
+                .to_string();
+            let value = entries.next()
+                .ris_expect("value to exist")?
+                .to_string();
+            let throughput_num = entries.next()
+                .ris_expect("throughput_num to exist")?
+                .to_string();
+            let throughput_type = entries.next()
+                .ris_expect("throughput_type to exist")?
+                .to_string();
+            let sample_measured_value = entries.next()
+                .ris_expect("sample_measured_value to exist")?
+                .parse()?;
+            let unit = match entries.next().ris_expect("unit to exist")? {
+                "ns" => Unit::ns,
+                unit => return ris_error::new_result!("unkown unit {}", unit),
+            };
+            let iteration_count = entries.next()
+                .ris_expect("iteration_count to exist")?
+                .parse()?;
+
+            data.push(Self {
+                group,
+                function,
+                value,
+                throughput_num,
+                throughput_type,
+                sample_measured_value,
+                unit,
+                iteration_count,
+            });
+        }
+
+        Ok(data)
+    }
+}
+
 impl Samples {
     fn deserialize(value: JsonValue) -> RisResult<Self> {
         let JsonValue::Object(object) = value else {
@@ -168,6 +236,22 @@ impl Samples {
     }
 }
 
+impl Tukey {
+    fn deserialize(value: JsonValue) -> RisResult<Self> {
+        let JsonValue::Array(array) = value else {
+            return ris_error::new_result!("json was not an array");
+        };
+
+        let mut result = Vec::new();
+
+        for value in array.iter() {
+            result.push(value.try_into()?);
+        }
+
+        Ok(Self(result))
+    }
+}
+
 //==============================================================================
 // Construct Report
 //==============================================================================
@@ -191,7 +275,9 @@ impl Report {
         let estimates = Estimates::deserialize(json)?;
 
         // read raw
-        // todo
+        let file_content = std::fs::read_to_string(raw_filepath)?;
+        let raw = Raw::deserialize(file_content)?;
+
 
         // read sample
         let file_content = std::fs::read_to_string(sample_filepath)?;
@@ -199,14 +285,16 @@ impl Report {
         let sample = Samples::deserialize(json)?;
 
         // read tukey
-        // todo
+        let file_content = std::fs::read_to_string(tukey_filepath)?;
+        let json = JsonValue::deserialize(file_content)?;
+        let tukey = Tukey::deserialize(json)?;
 
         Ok(Self {
             benchmark,
             estimates,
-            raw: (),
+            raw,
             sample,
-            tukey: (),
+            tukey,
         })
     }
 }
