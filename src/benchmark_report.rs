@@ -84,6 +84,18 @@ pub struct Samples {
 pub struct Tukey(pub Vec<f64>);
 
 //==============================================================================
+// Members
+//==============================================================================
+impl Raw {
+    pub fn iteration_time(&self) -> std::time::Duration {
+        let measured_iteration = self.sample_measured_value / self.iteration_count as f64;
+        match self.unit {
+            Unit::ns => std::time::Duration::from_nanos(measured_iteration.round() as u64),
+        }
+    }
+}
+
+//==============================================================================
 // Conversions
 //==============================================================================
 impl Benchmark {

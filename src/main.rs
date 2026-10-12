@@ -260,13 +260,30 @@ fn bench_normal(arg: impl AsRef<str>) -> RisResult<()> {
         gnuplot.run("set terminal pngcairo size 700,500 enhanced")?;
         gnuplot.run("set output '/home/simon/repos/benchmarks/violin.png'")?;
 
+        //gnuplot.run("set samples 200")?;
+        //gnuplot.run("set xrange [3.0e7:6.0e7]")?;
+
         for (i, report) in reports.iter().enumerate() {
+            let min = report.raw
+                .iter()
+                .min_by(|a, b| a.iteration_time().cmp(&b.iteration_time()))
+                .ris_expect("the report to not be empty")?;
+            let max = report.raw
+                .iter()
+                .max_by(|a, b| a.iteration_time().cmp(&b.iteration_time()))
+                .ris_expect("the report to not be empty")?;
+            eprintln!(
+                "my found min/max: {:?}/{:?}",
+                min.iteration_time(),
+                max.iteration_time(),
+            );
+
             let i = i + 1;
             gnuplot.run(format!("set table $D{}", i))?;
             gnuplot.run("plot '-' using 1:(1) smooth kdensity")?;
 
             for raw in report.raw.iter() {
-                gnuplot.run(format!("{}", raw.sample_measured_value))?;
+                gnuplot.run(format!("{}", raw.iteration_time().as_nanos()))?;
             }
 
             gnuplot.run("e")?;
@@ -289,7 +306,6 @@ fn bench_normal(arg: impl AsRef<str>) -> RisResult<()> {
             };
 
             let post = if i != reports.len() - 1 {
-            //let post = if i != n - 1 {
                 ", \\"
             } else {
                 ""
@@ -306,7 +322,7 @@ fn bench_normal(arg: impl AsRef<str>) -> RisResult<()> {
         }
 
         // kill gnuplot
-        eprint!("{} ", progress);
+        //eprint!("{} ", progress);
         drop(gnuplot);
     }
 
