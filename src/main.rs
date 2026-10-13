@@ -24,8 +24,8 @@ const SKIP_BENCH: bool = true;
 //==============================================================================
 const CURRENT_SNAPSHOT: &str = "dev - 8d2753e8e1539076cd020e01076a193840a75ae2";
 
-const OLD_ASSET_SNAPSHOT: &str = "old-asset-system - 1e2dcf087094fe6129ae06e9d7afdaac449b1f3e";
-const NEW_ASSET_SNAPSHOT: &str = CURRENT_SNAPSHOT;
+//const OLD_ASSET_SNAPSHOT: &str = "old-asset-system - 1e2dcf087094fe6129ae06e9d7afdaac449b1f3e";
+//const NEW_ASSET_SNAPSHOT: &str = CURRENT_SNAPSHOT;
 
 const OLD_JOB_SNAPSHOT: &str = "old-job-system - 1b3f3a1d7fcaa1fc6ecf3b3bdbd25b0dfc9d882b";
 const NEW_JOB_SNAPSHOT: &str = CURRENT_SNAPSHOT;
@@ -94,7 +94,7 @@ fn run_program(arg: impl AsRef<str>) -> RisResult<()> {
         _ => {
             let message = format!("unknown arg: \"{}\"", arg);
             print_help(&message);
-            return ris_error::new_result!("{}", message);
+            ris_error::new_result!("{}", message)
         }
     }
 }
@@ -141,12 +141,13 @@ fn bench_job() -> RisResult<()> {
     let new_reports = find_reports(&new_group_dir)?;
 
     // filter reports and plot
-    
-    // when no affinity is set, more workers produce significantly worse 
-    // benchmarks. one hypothosis is because the task scheduler schedules 
+
+    // when no affinity is set, more workers produce significantly worse
+    // benchmarks. one hypothosis is because the task scheduler schedules
     // workers on already running workers. this leads to workers interrupting
     // each other, producing worse performance
-    let reports = new_reports.iter()
+    let reports = new_reports
+        .iter()
         .filter(|x| !x.benchmark.function_id.contains("aff:0"))
         .cloned()
         .collect::<Vec<_>>();
@@ -156,12 +157,14 @@ fn bench_job() -> RisResult<()> {
         &reports,
     )?;
 
-    // in theory (and most benchmarking i've done), using all cores produces 
+    // in theory (and most benchmarking i've done), using all cores produces
     // the best benchmarks, assuming settings have been set correctly. the last
     // of the new reports should have the highest threadcount. find it, and
     // compare it against the control, as well as the old job system
     let last = new_reports.last().ris_expect("at least one report")?;
-    let key = last.benchmark.function_id
+    let key = last
+        .benchmark
+        .function_id
         .split(',')
         .next()
         .ris_expect("at least one plit")?;
@@ -172,7 +175,7 @@ fn bench_job() -> RisResult<()> {
             reports.push(report.clone());
         }
 
-        if report.benchmark.function_id.contains(&key) {
+        if report.benchmark.function_id.contains(key) {
             reports.push(report.clone());
         }
     }
@@ -199,9 +202,7 @@ fn bench(arg: impl AsRef<str>, snapshot: impl AsRef<str>) -> RisResult<()> {
 
     // collect paths
     let root_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let engine_dir = root_dir
-        .join("snapshots")
-        .join(snapshot);
+    let engine_dir = root_dir.join("snapshots").join(snapshot);
 
     let source_filepath = engine_dir.join("benches").join(format!("{}.rs", &arg));
 
@@ -233,8 +234,7 @@ fn bench(arg: impl AsRef<str>, snapshot: impl AsRef<str>) -> RisResult<()> {
         .position(|line| line.contains("criterion_group!"))
         .ris_expect("source code to define a criterion group")?;
     let mut group_string = String::new();
-    for line in start_line.. {
-        let line = &lines[line];
+    for line in lines.iter().skip(start_line) {
         group_string.push_str(line);
         if line.trim_end().ends_with(';') {
             break;
@@ -330,11 +330,7 @@ fn find_reports(group_dir: impl AsRef<Path>) -> RisResult<Vec<Report>> {
     }
 
     let s = if function_dirs.len() != 1 { "s" } else { "" };
-    eprintln!(
-        "found {} bench function{}:",
-        function_dirs.len(),
-        s
-    );
+    eprintln!("found {} bench function{}:", function_dirs.len(), s);
     for function_dir in function_dirs.iter() {
         eprintln!("- \"{}\"", function_dir.display())
     }
@@ -374,11 +370,11 @@ fn plot(
         "set title '{}: Violin plot'",
         title.replace("_", "\\_"),
     ))?;
-    gnuplot.run(format!("set ylabel 'Average time (ms)'"))?;
-    gnuplot.run(format!("set xlabel ''"))?;
+    gnuplot.run("set ylabel 'Average time (ms)'")?;
+    gnuplot.run("set xlabel ''")?;
     gnuplot.run("set grid ytics")?;
 
-    gnuplot.run(format!("set xtics rotate by 45 right"))?;
+    gnuplot.run("set xtics rotate by 45 right")?;
     for (i, report) in reports.iter().enumerate() {
         let pre = if i == 0 { "set xtics (" } else { "" };
 
@@ -407,7 +403,7 @@ fn plot(
         for (x, density) in report.kde(200)? {
             gnuplot.run(format!("{} {}", x, density))?;
         }
-        gnuplot.run(format!("EOD"))?;
+        gnuplot.run("EOD")?;
     }
 
     for (i, _) in reports.iter().enumerate() {
@@ -431,15 +427,19 @@ fn plot(
         ))?;
         gnuplot.run(format!(
             "'' using ({} - width*$2/max{}):($1/1e6) with filledcurves x1={} lc rgb color, \\",
-            i, i, i, 
+            i, i, i,
         ))?;
     }
 
     gnuplot.run("'-' using 1:2:3:4 with vectors nohead ls 10")?;
     for (i, report) in reports.iter().enumerate() {
-        let mean = report.estimates.mean.as_ref()
+        let mean = report
+            .estimates
+            .mean
+            .as_ref()
             .ris_expect("mean to exist")?
-            .point_estimate / 1e6;
+            .point_estimate
+            / 1e6;
         gnuplot.run(format!("{}.88 {} 0.24 0", i, mean))?;
     }
     gnuplot.run("e")?;
@@ -456,8 +456,18 @@ fn plot(
 
     let mut copy = reports.to_vec();
     copy.sort_by(|lhs, rhs| {
-        let left = lhs.estimates.mean.as_ref().expect("mean to exist").point_estimate;
-        let right = rhs.estimates.mean.as_ref().expect("mean to exist").point_estimate;
+        let left = lhs
+            .estimates
+            .mean
+            .as_ref()
+            .expect("mean to exist")
+            .point_estimate;
+        let right = rhs
+            .estimates
+            .mean
+            .as_ref()
+            .expect("mean to exist")
+            .point_estimate;
         if left < right {
             std::cmp::Ordering::Less
         } else if left > right {
@@ -466,7 +476,7 @@ fn plot(
             std::cmp::Ordering::Equal
         }
     });
-    
+
     writeln!(&mut result, "Legend:")?;
     writeln!(&mut result, "<full id> [lo mean hi]")?;
     writeln!(&mut result)?;
@@ -485,7 +495,11 @@ fn plot(
             whitespace.push(' ');
         }
 
-        writeln!(&mut result, "{} {} [{:.2e} ms {:.2e} ms {:.2e} ms]", name, whitespace, hi, mean, lo)?;
+        writeln!(
+            &mut result,
+            "{} {} [{:.2e} ms {:.2e} ms {:.2e} ms]",
+            name, whitespace, hi, mean, lo
+        )?;
     }
 
     Ok(())

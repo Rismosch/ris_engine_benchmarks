@@ -1,14 +1,14 @@
 use core::f64;
-use std::io::Read;
 use std::path::Path;
 
 use ris_error::prelude::*;
 
-use crate::json::{JsonObject, JsonValue};
+use crate::json::JsonValue;
 
 //==============================================================================
 // Structs
 //==============================================================================
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct Benchmark {
     pub group_id: String,
@@ -20,6 +20,7 @@ pub struct Benchmark {
     pub title: String,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct ConfidenceInterval {
     pub confidence_level: f64,
@@ -27,6 +28,7 @@ pub struct ConfidenceInterval {
     pub upper_bound: f64,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct Estimate {
     pub confidence_interval: ConfidenceInterval,
@@ -34,6 +36,7 @@ pub struct Estimate {
     pub standard_error: f64,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct Estimates {
     pub mean: Option<Estimate>,
@@ -43,11 +46,13 @@ pub struct Estimates {
     pub std_dev: Option<Estimate>,
 }
 
+#[allow(non_camel_case_types)]
 #[derive(Debug, Clone, PartialEq, Eq)]
-enum Unit {
+pub enum Unit {
     ns,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct Raw {
     pub group: String,
@@ -60,6 +65,7 @@ pub struct Raw {
     pub iteration_count: usize,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct Report {
     pub benchmark: Benchmark,
@@ -69,18 +75,21 @@ pub struct Report {
     pub tukey: Tukey,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct Sample {
     pub iter: usize,
     pub time: f64,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct Samples {
     pub sampling_mode: String,
     pub data: Vec<Sample>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct Tukey(pub Vec<f64>);
 
@@ -90,13 +99,6 @@ pub struct Tukey(pub Vec<f64>);
 impl Raw {
     pub fn iteration_measured_value(&self) -> f64 {
         self.sample_measured_value / self.iteration_count as f64
-    }
-
-    pub fn iteration_time(&self) -> std::time::Duration {
-        let measured_iteration = self.iteration_measured_value();
-        match self.unit {
-            Unit::ns => std::time::Duration::from_nanos(measured_iteration.round() as u64),
-        }
     }
 }
 
@@ -239,7 +241,7 @@ impl Raw {
                     break;
                 };
 
-                // if an entry is surrounded with `"`, it may contain `,`. 
+                // if an entry is surrounded with `"`, it may contain `,`.
                 // we need to concat those
                 let mut concat = vec![entry];
                 if entry.trim_start().starts_with('\"') {
