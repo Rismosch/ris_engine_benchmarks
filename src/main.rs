@@ -111,8 +111,13 @@ fn bench_asset() -> RisResult<()> {
 // Bench Job
 //==============================================================================
 fn bench_job() -> RisResult<()> {
+    // bench
     bench("job", OLD_JOB_SNAPSHOT)?;
     bench("job", NEW_JOB_SNAPSHOT)?;
+
+    // collect reports
+
+
     Ok(())
 }
 
@@ -214,66 +219,128 @@ fn bench(arg: impl AsRef<str>, snapshot: impl AsRef<str>) -> RisResult<()> {
         eprintln!(" - \"{}\"", group.display());
     }
 
-    // find bench functions
-    for (i, group_dir) in group_dirs.iter().enumerate() {
+    //// find bench functions
+    //for (i, group_dir) in group_dirs.iter().enumerate() {
+    //    let group_name = group_dir.strip_prefix(&target_dir)?.display();
+    //    let progress = format!("[{}/{}]", i + 1, group_dirs.len());
+
+    //    eprintln!();
+    //    eprintln!("{} find bench functions for {}... ", progress, group_name);
+
+    //    let mut function_dirs = Vec::new();
+
+    //    let entries = std::fs::read_dir(group_dir)?;
+    //    for entry in entries {
+    //        let entry = entry?;
+    //        let metadata = entry.metadata()?;
+    //        let entry_path = entry.path();
+
+    //        if !metadata.is_dir() {
+    //            continue;
+    //        }
+
+    //        if entry_path.ends_with("report") {
+    //            continue;
+    //        }
+
+    //        function_dirs.push(entry_path);
+    //    }
+
+    //    let s = if function_dirs.len() != 1 { "s" } else { "" };
+    //    eprintln!(
+    //        "{} found {} bench function{}:",
+    //        progress,
+    //        function_dirs.len(),
+    //        s
+    //    );
+    //    for function_dir in function_dirs.iter() {
+    //        eprintln!("{} - \"{}\"", progress, function_dir.display())
+    //    }
+
+    //    // read files
+    //    eprintln!("{} read files...", progress);
+    //    let mut reports = Vec::new();
+    //    for function_dir in function_dirs.iter() {
+    //        let report = Report::deserialize(function_dir)?;
+    //        reports.push(report);
+    //    }
+
+    //    let s = if reports.len() != 1 { "s" } else { "" };
+    //    eprintln!("{} found {} report{}", progress, reports.len(), s);
+
+    //    // build plots
+    //    eprintln!("{} build plots...", progress);
+
+    //    std::fs::create_dir_all(&out_dir)?;
+    //    let output_filepath = out_dir.join(group_name.to_string());
+    //    eprintln!("{} output file: {}", progress, output_filepath.display());
+
+    //    plot(group_name.to_string(), output_filepath, &reports)?;
+    //}
+
+    eprintln!("build plots...");
+    for group_dir in group_dirs.iter() {
         let group_name = group_dir.strip_prefix(&target_dir)?.display();
-        let progress = format!("[{}/{}]", i + 1, group_dirs.len());
-
-        eprintln!();
-        eprintln!("{} find bench functions for {}... ", progress, group_name);
-
-        let mut function_dirs = Vec::new();
-
-        let entries = std::fs::read_dir(group_dir)?;
-        for entry in entries {
-            let entry = entry?;
-            let metadata = entry.metadata()?;
-            let entry_path = entry.path();
-
-            if !metadata.is_dir() {
-                continue;
-            }
-
-            if entry_path.ends_with("report") {
-                continue;
-            }
-
-            function_dirs.push(entry_path);
-        }
-
-        let s = if function_dirs.len() != 1 { "s" } else { "" };
-        eprintln!(
-            "{} found {} bench function{}:",
-            progress,
-            function_dirs.len(),
-            s
-        );
-        for function_dir in function_dirs.iter() {
-            eprintln!("{} - \"{}\"", progress, function_dir.display())
-        }
-
-        // read files
-        eprintln!("{} read files...", progress);
-        let mut reports = Vec::new();
-        for function_dir in function_dirs.iter() {
-            let report = Report::deserialize(function_dir)?;
-            reports.push(report);
-        }
-
-        let s = if reports.len() != 1 { "s" } else { "" };
-        eprintln!("{} found {} report{}", progress, reports.len(), s);
-
-        // build plots
-        eprintln!("{} build plots...", progress);
 
         std::fs::create_dir_all(&out_dir)?;
         let output_filepath = out_dir.join(group_name.to_string());
-        eprintln!("{} output file: {}", progress, output_filepath.display());
+        eprintln!("output file: {}", output_filepath.display());
 
+        let reports = find_reports(group_dir)?;
         plot(group_name.to_string(), output_filepath, &reports)?;
     }
 
     Ok(())
+}
+
+//==============================================================================
+// Utility
+//==============================================================================
+fn find_reports(group_dir: impl AsRef<Path>) -> RisResult<Vec<Report>> {
+    let group_dir = group_dir.as_ref();
+
+    // find bench functions
+    let mut function_dirs = Vec::new();
+
+    let entries = std::fs::read_dir(group_dir)?;
+    for entry in entries {
+        let entry = entry?;
+        let metadata = entry.metadata()?;
+        let entry_path = entry.path();
+
+        if !metadata.is_dir() {
+            continue;
+        }
+
+        if entry_path.ends_with("report") {
+            continue;
+        }
+
+        function_dirs.push(entry_path);
+    }
+
+    let s = if function_dirs.len() != 1 { "s" } else { "" };
+    eprintln!(
+        "found {} bench function{}:",
+        function_dirs.len(),
+        s
+    );
+    for function_dir in function_dirs.iter() {
+        eprintln!("- \"{}\"", function_dir.display())
+    }
+
+    // read files
+    eprintln!("read files...");
+    let mut reports = Vec::new();
+    for function_dir in function_dirs.iter() {
+        let report = Report::deserialize(function_dir)?;
+        reports.push(report);
+    }
+
+    let s = if reports.len() != 1 { "s" } else { "" };
+    eprintln!("found {} report{}", reports.len(), s);
+
+    Ok(reports)
 }
 
 fn plot(
@@ -284,10 +351,15 @@ fn plot(
     let title = title.as_ref();
     let output_filestem = output_filestem.as_ref();
 
+    // sort reports
+
+    let mut reports = reports.to_vec();
+    reports.sort_by(|lhs, rhs| lhs.benchmark.full_id.cmp(&rhs.benchmark.full_id));
+
     // gnuplot
     let mut gnuplot = Gnuplot::open()?;
 
-    gnuplot.run("set terminal svg enhanced font 'Arial,12'")?;
+    gnuplot.run("set terminal svg size 1600,800 enhanced font 'Arial,12'")?;
     gnuplot.run(format!("set output '{}.svg'", output_filestem.display()))?;
 
     gnuplot.run(format!(
@@ -336,12 +408,12 @@ fn plot(
         gnuplot.run(format!("max{} = STATS_max", i))?;
     }
 
+    gnuplot.run("set style line 10 lc rgb '#ff0000' lw 1")?;
     gnuplot.run("width = 0.4")?;
     gnuplot.run("color = '#0000ff'")?;
 
     for (i, _) in reports.iter().enumerate() {
         let pre = if i == 0 { "plot " } else { "" };
-        let post = if i != reports.len() - 1 { ", \\" } else { "" };
 
         let i = i + 1;
 
@@ -350,10 +422,19 @@ fn plot(
             pre, i, i, i, i,
         ))?;
         gnuplot.run(format!(
-            "'' using ({} - width*$2/max{}):($1/1e6) with filledcurves x1={} lc rgb color{}",
-            i, i, i, post,
+            "'' using ({} - width*$2/max{}):($1/1e6) with filledcurves x1={} lc rgb color, \\",
+            i, i, i, 
         ))?;
     }
+
+    gnuplot.run("'-' using 1:2:3:4 with vectors nohead ls 10")?;
+    for (i, report) in reports.iter().enumerate() {
+        let mean = report.estimates.mean.as_ref()
+            .ris_expect("mean to exist")?
+            .point_estimate / 1e6;
+        gnuplot.run(format!("{}.88 {} 0.24 0", i, mean))?;
+    }
+    gnuplot.run("e")?;
 
     // result.txt
     let result_filepath = format!("{}.txt", output_filestem.display());

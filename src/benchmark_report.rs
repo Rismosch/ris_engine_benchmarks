@@ -231,40 +231,6 @@ impl Raw {
         let mut data = Vec::new();
 
         for line in value.lines().skip(1) {
-            //let mut entries = Vec::new();
-
-            //let mut splits = line.split("\"");
-            //loop {
-            //    let first = splits.next();
-            //    let second = splits.next();
-
-            //    match (first, second) {
-            //        (Some(first), Some(second)) => {
-            //            for entry in first.split(',') {
-            //                if !entry.trim().is_empty() {
-            //                    entries.push(entry);
-            //                }
-            //            }
-
-            //            if !second.trim().is_empty() {
-            //                entries.push(second);
-            //            }
-            //        },
-            //        (Some(first), None) => {
-            //            for entry in first.split(',') {
-            //                if !entry.trim().is_empty() {
-            //                    entries.push(entry);
-            //                }
-            //            }
-
-            //            break;
-            //        },
-            //        _ => break,
-            //    }
-            //}
-
-            //eprintln!("DEBUG: {:?}", entries);
-
             let mut naive_entries = line.split(',');
             let mut entries = Vec::new();
 
@@ -399,8 +365,6 @@ impl Tukey {
 impl Report {
     pub fn deserialize(path: impl AsRef<Path>) -> RisResult<Self> {
         let path = path.as_ref();
-
-        eprintln!("DEBUG: deserialize {}", path.display());
 
         let benchmark_filepath = path.join("new").join("benchmark.json");
         let estimates_filepath = path.join("new").join("estimates.json");
