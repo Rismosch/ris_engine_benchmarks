@@ -111,12 +111,81 @@ fn bench_asset() -> RisResult<()> {
 // Bench Job
 //==============================================================================
 fn bench_job() -> RisResult<()> {
+    // collect paths
+    let root_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let out_dir = root_dir.join("target").join("plots");
+
     // bench
     bench("job", OLD_JOB_SNAPSHOT)?;
     bench("job", NEW_JOB_SNAPSHOT)?;
 
     // collect reports
+    let old_group_dir = root_dir
+        .join("snapshots")
+        .join(OLD_JOB_SNAPSHOT)
+        .join("target")
+        .join("criterion")
+        .join("job_old_job_system");
+    let new_group_dir = root_dir
+        .join("snapshots")
+        .join(NEW_JOB_SNAPSHOT)
+        .join("target")
+        .join("criterion")
+        .join("job_new_job_system");
 
+    eprintln!("collecting reports...");
+    eprintln!(" - \"{}\"", old_group_dir.display());
+    eprintln!(" - \"{}\"", new_group_dir.display());
+
+    let old_reports = find_reports(&old_group_dir)?;
+    let new_reports = find_reports(&new_group_dir)?;
+
+    // filter reports and plot
+    
+    // when no affinity is set, more workers produce significantly worse 
+    // benchmarks. one hypothosis is because the task scheduler schedules 
+    // workers on already running workers. this leads to workers interrupting
+    // each other, producing worse performance
+    let reports = new_reports.iter()
+        .filter(|x| !x.benchmark.function_id.contains("aff:0"))
+        .cloned()
+        .collect::<Vec<_>>();
+    plot(
+        "New job system, forced affinity",
+        out_dir.join("job_new_job_system_forced_affinity"),
+        &reports,
+    )?;
+
+    // in theory (and most benchmarking i've done), using all cores produces 
+    // the best benchmarks, assuming settings have been set correctly. the last
+    // of the new reports should have the highest threadcount. find it, and
+    // compare it against the control, as well as the old job system
+    let last = new_reports.last().ris_expect("at least one report")?;
+    let key = last.benchmark.function_id
+        .split(',')
+        .next()
+        .ris_expect("at least one plit")?;
+
+    let mut reports = Vec::new();
+    for report in new_reports.iter() {
+        if report.benchmark.function_id == "control" {
+            reports.push(report.clone());
+        }
+
+        if report.benchmark.function_id.contains(&key) {
+            reports.push(report.clone());
+        }
+    }
+
+    for report in old_reports.iter() {
+        reports.push(report.clone());
+    }
+
+    plot(
+        "Job Systems, compared",
+        out_dir.join("job_systems_compared"),
+        &reports,
+    )?;
 
     Ok(())
 }
@@ -130,8 +199,7 @@ fn bench(arg: impl AsRef<str>, snapshot: impl AsRef<str>) -> RisResult<()> {
 
     // collect paths
     let root_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-
-    let engine_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+    let engine_dir = root_dir
         .join("snapshots")
         .join(snapshot);
 
@@ -219,65 +287,7 @@ fn bench(arg: impl AsRef<str>, snapshot: impl AsRef<str>) -> RisResult<()> {
         eprintln!(" - \"{}\"", group.display());
     }
 
-    //// find bench functions
-    //for (i, group_dir) in group_dirs.iter().enumerate() {
-    //    let group_name = group_dir.strip_prefix(&target_dir)?.display();
-    //    let progress = format!("[{}/{}]", i + 1, group_dirs.len());
-
-    //    eprintln!();
-    //    eprintln!("{} find bench functions for {}... ", progress, group_name);
-
-    //    let mut function_dirs = Vec::new();
-
-    //    let entries = std::fs::read_dir(group_dir)?;
-    //    for entry in entries {
-    //        let entry = entry?;
-    //        let metadata = entry.metadata()?;
-    //        let entry_path = entry.path();
-
-    //        if !metadata.is_dir() {
-    //            continue;
-    //        }
-
-    //        if entry_path.ends_with("report") {
-    //            continue;
-    //        }
-
-    //        function_dirs.push(entry_path);
-    //    }
-
-    //    let s = if function_dirs.len() != 1 { "s" } else { "" };
-    //    eprintln!(
-    //        "{} found {} bench function{}:",
-    //        progress,
-    //        function_dirs.len(),
-    //        s
-    //    );
-    //    for function_dir in function_dirs.iter() {
-    //        eprintln!("{} - \"{}\"", progress, function_dir.display())
-    //    }
-
-    //    // read files
-    //    eprintln!("{} read files...", progress);
-    //    let mut reports = Vec::new();
-    //    for function_dir in function_dirs.iter() {
-    //        let report = Report::deserialize(function_dir)?;
-    //        reports.push(report);
-    //    }
-
-    //    let s = if reports.len() != 1 { "s" } else { "" };
-    //    eprintln!("{} found {} report{}", progress, reports.len(), s);
-
-    //    // build plots
-    //    eprintln!("{} build plots...", progress);
-
-    //    std::fs::create_dir_all(&out_dir)?;
-    //    let output_filepath = out_dir.join(group_name.to_string());
-    //    eprintln!("{} output file: {}", progress, output_filepath.display());
-
-    //    plot(group_name.to_string(), output_filepath, &reports)?;
-    //}
-
+    // build plots
     eprintln!("build plots...");
     for group_dir in group_dirs.iter() {
         let group_name = group_dir.strip_prefix(&target_dir)?.display();
@@ -340,6 +350,9 @@ fn find_reports(group_dir: impl AsRef<Path>) -> RisResult<Vec<Report>> {
     let s = if reports.len() != 1 { "s" } else { "" };
     eprintln!("found {} report{}", reports.len(), s);
 
+    // sort
+    reports.sort_by(|lhs, rhs| lhs.benchmark.full_id.cmp(&rhs.benchmark.full_id));
+
     Ok(reports)
 }
 
@@ -350,11 +363,6 @@ fn plot(
 ) -> RisResult<()> {
     let title = title.as_ref();
     let output_filestem = output_filestem.as_ref();
-
-    // sort reports
-
-    let mut reports = reports.to_vec();
-    reports.sort_by(|lhs, rhs| lhs.benchmark.full_id.cmp(&rhs.benchmark.full_id));
 
     // gnuplot
     let mut gnuplot = Gnuplot::open()?;
@@ -458,6 +466,11 @@ fn plot(
             std::cmp::Ordering::Equal
         }
     });
+    
+    writeln!(&mut result, "Legend:")?;
+    writeln!(&mut result, "<full id> [lo mean hi]")?;
+    writeln!(&mut result)?;
+    writeln!(&mut result, "Data: (sorted by mean)")?;
 
     for report in copy.iter() {
         let name = &report.benchmark.full_id;
