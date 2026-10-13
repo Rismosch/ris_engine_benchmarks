@@ -17,7 +17,7 @@ use crate::gnuplot::Gnuplot;
 //==============================================================================
 
 /// useful for debugging the plot generation
-const SKIP_BENCH: bool = false;
+const SKIP_BENCH: bool = true;
 
 //==============================================================================
 // Constants

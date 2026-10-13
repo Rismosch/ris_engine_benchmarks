@@ -231,7 +231,77 @@ impl Raw {
         let mut data = Vec::new();
 
         for line in value.lines().skip(1) {
-            let mut entries = line.split(',');
+            //let mut entries = Vec::new();
+
+            //let mut splits = line.split("\"");
+            //loop {
+            //    let first = splits.next();
+            //    let second = splits.next();
+
+            //    match (first, second) {
+            //        (Some(first), Some(second)) => {
+            //            for entry in first.split(',') {
+            //                if !entry.trim().is_empty() {
+            //                    entries.push(entry);
+            //                }
+            //            }
+
+            //            if !second.trim().is_empty() {
+            //                entries.push(second);
+            //            }
+            //        },
+            //        (Some(first), None) => {
+            //            for entry in first.split(',') {
+            //                if !entry.trim().is_empty() {
+            //                    entries.push(entry);
+            //                }
+            //            }
+
+            //            break;
+            //        },
+            //        _ => break,
+            //    }
+            //}
+
+            //eprintln!("DEBUG: {:?}", entries);
+
+            let mut naive_entries = line.split(',');
+            let mut entries = Vec::new();
+
+            loop {
+                let Some(entry) = naive_entries.next() else {
+                    break;
+                };
+
+                // if an entry is surrounded with `"`, it may contain `,`. 
+                // we need to concat those
+                let mut concat = vec![entry];
+                if entry.trim_start().starts_with('\"') {
+                    loop {
+                        let Some(entry) = naive_entries.next() else {
+                            eprintln!("WARNING: didn't found closing `\"`");
+                            break;
+                        };
+
+                        concat.push(entry);
+
+                        if entry.trim_end().ends_with('\"') {
+                            break;
+                        }
+                    }
+                }
+
+                let mut entry = entry.to_string();
+
+                for piece in concat.iter().skip(1) {
+                    entry = format!("{},{}", entry, piece);
+                }
+
+                entries.push(entry);
+            }
+
+            let mut entries = entries.iter().map(|x| x.as_str());
+
             let group = entries.next().ris_expect("group to exist")?.to_string();
             let function = entries.next().ris_expect("function to exist")?.to_string();
             let value = entries.next().ris_expect("value to exist")?.to_string();
@@ -329,6 +399,9 @@ impl Tukey {
 impl Report {
     pub fn deserialize(path: impl AsRef<Path>) -> RisResult<Self> {
         let path = path.as_ref();
+
+        eprintln!("DEBUG: deserialize {}", path.display());
+
         let benchmark_filepath = path.join("new").join("benchmark.json");
         let estimates_filepath = path.join("new").join("estimates.json");
         let raw_filepath = path.join("new").join("raw.csv");
