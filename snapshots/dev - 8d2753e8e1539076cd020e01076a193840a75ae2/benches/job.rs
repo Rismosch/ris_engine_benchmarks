@@ -8,8 +8,8 @@ use ris_async::thread_pool::ThreadPoolCreateInfo;
 use ris_rng::rng::Rng;
 use ris_rng::rng::Seed;
 
-fn async_runner(c: &mut Criterion) {
-    let mut group = c.benchmark_group("async");
+fn job(c: &mut Criterion) {
+    let mut group = c.benchmark_group("job_new_job_system");
 
     let mut rng = Rng::new(Seed::new());
 
@@ -91,5 +91,5 @@ fn dummy_work(input: u64, iterations: usize) -> u64 {
     hash
 }
 
-criterion_group!(benches, async_runner);
+criterion_group!(benches, job);
 criterion_main!(benches);

@@ -126,7 +126,7 @@ codegen-units = 1
 rpath = false
 
 [[bench]]
-name = "async"
+name = "job"
 harness = false
 
 [[bench]]

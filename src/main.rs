@@ -3,6 +3,7 @@ mod cli;
 mod gnuplot;
 mod json;
 
+use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -12,18 +13,32 @@ use crate::benchmark_report::Report;
 use crate::gnuplot::Gnuplot;
 
 //==============================================================================
+// Debug
+//==============================================================================
+
+/// useful for debugging the plot generation
+const SKIP_BENCH: bool = false;
+
+//==============================================================================
 // Constants
 //==============================================================================
-const ENGINE_CURRENT_SNAPSHOT: &str = "dev - 8d2753e8e1539076cd020e01076a193840a75ae2";
+const CURRENT_SNAPSHOT: &str = "dev - 8d2753e8e1539076cd020e01076a193840a75ae2";
+
+const OLD_ASSET_SNAPSHOT: &str = "old-asset-system - 1e2dcf087094fe6129ae06e9d7afdaac449b1f3e";
+const NEW_ASSET_SNAPSHOT: &str = CURRENT_SNAPSHOT;
+
+const OLD_JOB_SNAPSHOT: &str = "old-job-system - 1b3f3a1d7fcaa1fc6ecf3b3bdbd25b0dfc9d882b";
+const NEW_JOB_SNAPSHOT: &str = CURRENT_SNAPSHOT;
 
 const ARG_ALL: &str = "all";
+const ARG_ASSET: &str = "asset";
 const ARG_JOB: &str = "job";
 const ARG_MAP: &str = "map";
 const ARG_MATH: &str = "math";
 const ARG_SINCOS: &str = "sincos";
 const ARG_VEC: &str = "vec";
 
-const ALL_ARGS: &[&str] = &[ARG_JOB, ARG_MAP, ARG_MATH, ARG_SINCOS, ARG_VEC];
+const ALL_ARGS: &[&str] = &[ARG_ASSET, ARG_JOB, ARG_MAP, ARG_MATH, ARG_SINCOS, ARG_VEC];
 
 //==============================================================================
 // Harness
@@ -37,7 +52,7 @@ fn main() -> Result<std::process::ExitCode, String> {
     }
 
     let arg = raw_args[1].trim().to_lowercase();
-    bench(arg).map_err(|e| {
+    run_program(arg).map_err(|e| {
         eprintln!("{:?}", e);
         format!("{}", e)
     })?;
@@ -51,7 +66,7 @@ fn print_help(message: impl AsRef<str>) {
     eprintln!();
     eprintln!("usage: cargo run -- <bench>");
     eprintln!();
-    eprintln!("available benches:");
+    eprintln!("available programs:");
     eprintln!("- all");
     for &arg in ALL_ARGS.iter() {
         eprintln!("- {}", arg);
@@ -59,22 +74,23 @@ fn print_help(message: impl AsRef<str>) {
     eprintln!();
 }
 
-fn bench(arg: impl AsRef<str>) -> RisResult<()> {
+fn run_program(arg: impl AsRef<str>) -> RisResult<()> {
     let arg = arg.as_ref();
 
     match arg {
         _ if arg == ARG_ALL => {
             for arg in ALL_ARGS {
-                bench(arg)?;
+                run_program(arg)?;
             }
 
             Ok(())
         }
+        _ if arg == ARG_ASSET => bench_asset(),
         _ if arg == ARG_JOB => bench_job(),
-        _ if arg == ARG_MAP => bench_normal(arg),
-        _ if arg == ARG_MATH => bench_normal(arg),
-        _ if arg == ARG_SINCOS => bench_normal(arg),
-        _ if arg == ARG_VEC => bench_normal(arg),
+        _ if arg == ARG_MAP => bench(arg, CURRENT_SNAPSHOT),
+        _ if arg == ARG_MATH => bench(arg, CURRENT_SNAPSHOT),
+        _ if arg == ARG_SINCOS => bench(arg, CURRENT_SNAPSHOT),
+        _ if arg == ARG_VEC => bench(arg, CURRENT_SNAPSHOT),
         _ => {
             let message = format!("unknown arg: \"{}\"", arg);
             print_help(&message);
@@ -86,23 +102,33 @@ fn bench(arg: impl AsRef<str>) -> RisResult<()> {
 //==============================================================================
 // Bench Job
 //==============================================================================
+fn bench_asset() -> RisResult<()> {
+    println!("not implemented yet");
+    Ok(())
+}
+
+//==============================================================================
+// Bench Job
+//==============================================================================
 fn bench_job() -> RisResult<()> {
-    println!("job bench");
+    bench("job", OLD_JOB_SNAPSHOT)?;
+    bench("job", NEW_JOB_SNAPSHOT)?;
     Ok(())
 }
 
 //==============================================================================
 // Bench Normal
 //==============================================================================
-fn bench_normal(arg: impl AsRef<str>) -> RisResult<()> {
+fn bench(arg: impl AsRef<str>, snapshot: impl AsRef<str>) -> RisResult<()> {
     let arg = arg.as_ref();
+    let snapshot = snapshot.as_ref();
 
     // collect paths
     let root_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
 
     let engine_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("engine")
-        .join(ENGINE_CURRENT_SNAPSHOT);
+        .join("snapshots")
+        .join(snapshot);
 
     let source_filepath = engine_dir.join("benches").join(format!("{}.rs", &arg));
 
@@ -116,12 +142,12 @@ fn bench_normal(arg: impl AsRef<str>) -> RisResult<()> {
     eprintln!("out_dir:         {}", out_dir.display());
     eprintln!();
 
-    // change dir
-    eprintln!("change directory... {}", engine_dir.display());
-    std::env::set_current_dir(engine_dir)?;
-
     // benchmark
-    cli::run(format!("cargo bench {}", arg), None)?;
+    if !SKIP_BENCH {
+        eprintln!("change directory... {}", engine_dir.display());
+        std::env::set_current_dir(engine_dir)?;
+        cli::run(format!("cargo bench {}", arg), None)?;
+    }
 
     // collect benchmark groups
     eprintln!("collect benchmark_groups...");
@@ -241,7 +267,7 @@ fn bench_normal(arg: impl AsRef<str>) -> RisResult<()> {
         eprintln!("{} build plots...", progress);
 
         std::fs::create_dir_all(&out_dir)?;
-        let output_filepath = out_dir.join(format!("{}.svg", group_name));
+        let output_filepath = out_dir.join(group_name.to_string());
         eprintln!("{} output file: {}", progress, output_filepath.display());
 
         plot(group_name.to_string(), output_filepath, &reports)?;
@@ -252,16 +278,17 @@ fn bench_normal(arg: impl AsRef<str>) -> RisResult<()> {
 
 fn plot(
     title: impl AsRef<str>,
-    output_filepath: impl AsRef<Path>,
+    output_filestem: impl AsRef<Path>,
     reports: &[Report],
 ) -> RisResult<()> {
     let title = title.as_ref();
-    let output_filepath = output_filepath.as_ref();
+    let output_filestem = output_filestem.as_ref();
 
+    // gnuplot
     let mut gnuplot = Gnuplot::open()?;
 
     gnuplot.run("set terminal svg enhanced font 'Arial,12'")?;
-    gnuplot.run(format!("set output '{}'", output_filepath.display()))?;
+    gnuplot.run(format!("set output '{}.svg'", output_filestem.display()))?;
 
     gnuplot.run(format!(
         "set title '{}: Violin plot'",
@@ -288,6 +315,7 @@ fn plot(
         ))?;
     }
 
+    gnuplot.run("set logscale y")?;
     gnuplot.run(format!("set xrange [0.5:{}.5]", reports.len()))?;
     gnuplot.run("set style fill solid 0.5")?;
     gnuplot.run("set key off")?;
@@ -325,6 +353,45 @@ fn plot(
             "'' using ({} - width*$2/max{}):($1/1e6) with filledcurves x1={} lc rgb color{}",
             i, i, i, post,
         ))?;
+    }
+
+    // result.txt
+    let result_filepath = format!("{}.txt", output_filestem.display());
+    let mut result = std::fs::File::create(result_filepath)?;
+
+    let mut max_width = 0;
+    for report in reports.iter() {
+        let name = &report.benchmark.full_id;
+        max_width = usize::max(max_width, name.len());
+    }
+
+    let mut copy = reports.to_vec();
+    copy.sort_by(|lhs, rhs| {
+        let left = lhs.estimates.mean.as_ref().expect("mean to exist").point_estimate;
+        let right = rhs.estimates.mean.as_ref().expect("mean to exist").point_estimate;
+        if left < right {
+            std::cmp::Ordering::Less
+        } else if left > right {
+            std::cmp::Ordering::Greater
+        } else {
+            std::cmp::Ordering::Equal
+        }
+    });
+
+    for report in copy.iter() {
+        let name = &report.benchmark.full_id;
+
+        let estimate = report.estimates.mean.as_ref().ris_expect("mean to exist")?;
+        let hi = estimate.confidence_interval.upper_bound / 1e6;
+        let lo = estimate.confidence_interval.lower_bound / 1e6;
+        let mean = estimate.point_estimate / 1e6;
+
+        let mut whitespace = "".to_string();
+        for _ in name.len()..max_width {
+            whitespace.push(' ');
+        }
+
+        writeln!(&mut result, "{} {} [{:.2e} ms {:.2e} ms {:.2e} ms]", name, whitespace, hi, mean, lo)?;
     }
 
     Ok(())
