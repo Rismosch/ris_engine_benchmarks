@@ -16,7 +16,7 @@ use ris_data::info::sdl_info::SdlInfo;
 use ris_core::god_object::GodObject;
 
 fn asset(c: &mut Criterion) {
-    let mut group = c.benchmark_group("asset_new");
+    let mut group = c.benchmark_group("asset_old");
 
     // construct engine
     let root_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));

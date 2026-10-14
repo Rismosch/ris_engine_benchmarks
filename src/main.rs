@@ -17,7 +17,7 @@ use crate::gnuplot::Gnuplot;
 //==============================================================================
 
 /// useful for debugging plotting, as benching can take quite a while
-const SKIP_BENCH: bool = true;
+const SKIP_BENCH: bool = false;
 
 //==============================================================================
 // Constants
@@ -103,7 +103,47 @@ fn run_program(arg: impl AsRef<str>) -> RisResult<()> {
 // Bench Job
 //==============================================================================
 fn bench_asset() -> RisResult<()> {
-    println!("not implemented yet");
+    // collect paths
+    let root_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let out_dir = root_dir.join("target").join("plots");
+
+    // bench
+    bench("asset", OLD_ASSET_SNAPSHOT)?;
+    bench("asset", NEW_ASSET_SNAPSHOT)?;
+
+    // collect reports
+    let old_group_dir = root_dir
+        .join("snapshots")
+        .join(OLD_ASSET_SNAPSHOT)
+        .join("target")
+        .join("criterion")
+        .join("asset_old");
+    let new_group_dir = root_dir
+        .join("snapshots")
+        .join(NEW_ASSET_SNAPSHOT)
+        .join("target")
+        .join("criterion")
+        .join("asset_new");
+
+    eprintln!("collecting reports...");
+    eprintln!(" - \"{}\"", old_group_dir.display());
+    eprintln!(" - \"{}\"", new_group_dir.display());
+
+    let old_reports = find_reports(&old_group_dir)?;
+    let new_reports = find_reports(&new_group_dir)?;
+
+    let reports = old_reports.iter()
+        .chain(new_reports.iter())
+        .cloned()
+        .collect::<Vec<_>>();
+
+    // plot
+    plot(
+        "Asset Systems comparison",
+        out_dir.join("asset_systems_compared"),
+        &reports,
+    )?;
+
     Ok(())
 }
 
@@ -152,7 +192,7 @@ fn bench_job() -> RisResult<()> {
         .cloned()
         .collect::<Vec<_>>();
     plot(
-        "New job system, forced affinity",
+        "New job system with forced affinity",
         out_dir.join("job_new_job_system_forced_affinity"),
         &reports,
     )?;
@@ -190,7 +230,7 @@ fn bench_job() -> RisResult<()> {
     }
 
     plot(
-        "Job Systems, compared",
+        "Job Systems comparison",
         out_dir.join("job_systems_compared"),
         &reports,
     )?;
