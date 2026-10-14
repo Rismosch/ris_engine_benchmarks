@@ -126,6 +126,10 @@ codegen-units = 1
 rpath = false
 
 [[bench]]
+name = "asset"
+harness = false
+
+[[bench]]
 name = "job"
 harness = false
 

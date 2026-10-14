@@ -16,7 +16,7 @@ use crate::gnuplot::Gnuplot;
 // Debug
 //==============================================================================
 
-/// useful for debugging the plot generation
+/// useful for debugging plotting, as benching can take quite a while
 const SKIP_BENCH: bool = true;
 
 //==============================================================================
@@ -24,8 +24,8 @@ const SKIP_BENCH: bool = true;
 //==============================================================================
 const CURRENT_SNAPSHOT: &str = "dev - 8d2753e8e1539076cd020e01076a193840a75ae2";
 
-//const OLD_ASSET_SNAPSHOT: &str = "old-asset-system - 1e2dcf087094fe6129ae06e9d7afdaac449b1f3e";
-//const NEW_ASSET_SNAPSHOT: &str = CURRENT_SNAPSHOT;
+const OLD_ASSET_SNAPSHOT: &str = "old-asset-system - 1e2dcf087094fe6129ae06e9d7afdaac449b1f3e";
+const NEW_ASSET_SNAPSHOT: &str = CURRENT_SNAPSHOT;
 
 const OLD_JOB_SNAPSHOT: &str = "old-job-system - 1b3f3a1d7fcaa1fc6ecf3b3bdbd25b0dfc9d882b";
 const NEW_JOB_SNAPSHOT: &str = CURRENT_SNAPSHOT;
@@ -171,6 +171,11 @@ fn bench_job() -> RisResult<()> {
 
     let mut reports = Vec::new();
     for report in new_reports.iter() {
+        if report.benchmark.function_id.contains("aff:0") {
+            // skip obviously bad settings
+            continue;
+        }
+
         if report.benchmark.function_id == "control" {
             reports.push(report.clone());
         }
@@ -363,7 +368,10 @@ fn plot(
     // gnuplot
     let mut gnuplot = Gnuplot::open()?;
 
-    gnuplot.run("set terminal svg size 1600,800 enhanced font 'Arial,12'")?;
+    gnuplot.run(format!(
+            "set terminal svg size 1600,800 enhanced font 'Arial,12' name '{}'",
+            title
+    ))?;
     gnuplot.run(format!("set output '{}.svg'", output_filestem.display()))?;
 
     gnuplot.run(format!(
@@ -391,9 +399,9 @@ fn plot(
         ))?;
     }
 
-    gnuplot.run("set logscale y")?;
+    //gnuplot.run("set logscale y")?;
     gnuplot.run(format!("set xrange [0.5:{}.5]", reports.len()))?;
-    gnuplot.run("set style fill solid 0.5")?;
+    //gnuplot.run("set style fill solid 0.5")?;
     gnuplot.run("set key off")?;
 
     for (i, report) in reports.iter().enumerate() {
@@ -412,9 +420,9 @@ fn plot(
         gnuplot.run(format!("max{} = STATS_max", i))?;
     }
 
-    gnuplot.run("set style line 10 lc rgb '#ff0000' lw 1")?;
+    gnuplot.run("set style line 10 lc rgb '#ff0000' lw 2")?;
     gnuplot.run("width = 0.4")?;
-    gnuplot.run("color = '#0000ff'")?;
+    gnuplot.run("color = '#0065b5'")?;
 
     for (i, _) in reports.iter().enumerate() {
         let pre = if i == 0 { "plot " } else { "" };
