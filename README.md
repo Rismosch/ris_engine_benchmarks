@@ -32,3 +32,4 @@ This makes the new asset system ~3% faster, which I guess is a win. But when run
 
 My conclusion is that the new asset system is indeed faster, but the automatic tool produces an order effect, which skews results. As such, Rust appears to have been the wrong choice to write this automatic bench tool. A bash script may be the better choice.
 
+Also, the entire engine is initialized instead of just the asset system. This may also influence performance. Especially because currently I assume that the current async job system is a tiny bit slower than the old thread based job system.
