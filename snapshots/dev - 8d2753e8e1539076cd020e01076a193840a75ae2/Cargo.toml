@@ -145,5 +145,9 @@ name = "sincos"
 harness = false
 
 [[bench]]
+name = "spinlock"
+harness = false
+
+[[bench]]
 name = "vec"
 harness = false
