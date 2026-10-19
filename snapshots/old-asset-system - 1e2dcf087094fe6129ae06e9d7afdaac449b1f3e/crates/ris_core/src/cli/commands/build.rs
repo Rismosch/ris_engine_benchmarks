@@ -2,6 +2,7 @@ use std::io::Read;
 use std::io::Write;
 use std::path::Path;
 
+use ris_error::Extensions;
 use ris_error::RisResult;
 
 use super::ExplanationLevel;
@@ -253,7 +254,7 @@ impl ICommand for Build {
 
             eprintln!("moving sdl2...");
             let where_sdl2 = cmd::run_where(SDL2_NAME)?;
-            let src_sdl2_path = where_sdl2.first().into_ris_error()?;
+            let src_sdl2_path = where_sdl2.first().ris_expect("sdl2 to exist")?;
             let dst_sdl2_path = target_dir.join(SDL2_NAME);
             eprintln!(
                 "attempting to copy {} from: \"{}\"",

@@ -55,7 +55,7 @@ fn asset(c: &mut Criterion) {
 
     group.bench_function("load god asset", |b| {
         b.iter(|| {
-            for _ in 0..1000 {
+            //for _ in 0..1000 {
                 let id = god_asset_id.clone();
                 let god_asset_bytes = ris_asset::asset_loader::load_raw_async(id).wait().unwrap();
                 let god_asset = RisGodAsset::deserialize(&god_asset_bytes).unwrap();
@@ -69,7 +69,7 @@ fn asset(c: &mut Criterion) {
                     let asset = future.wait().unwrap();
                     black_box(asset);
                 }
-            }
+            //}
         });
     });
 }

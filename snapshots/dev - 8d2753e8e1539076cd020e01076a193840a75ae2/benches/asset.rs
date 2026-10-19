@@ -55,7 +55,7 @@ fn asset(c: &mut Criterion) {
 
     group.bench_function("load god asset", |b| {
         b.iter(|| {
-            for _ in 0..1000 {
+            //for _ in 0..1000 {
                 let id = god_asset_id.clone();
                 let future = unsafe {asset_loader.load_async::<RisGodAsset>(id).unwrap()};
                 let god_asset = future.wait();
@@ -69,7 +69,7 @@ fn asset(c: &mut Criterion) {
                     let asset = future.wait();
                     black_box(asset);
                 }
-            }
+            //}
         });
     });
 }
