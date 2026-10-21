@@ -4,6 +4,7 @@
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
+use std::sync::Mutex;
 
 use criterion::Criterion;
 use criterion::criterion_group;
@@ -109,6 +110,7 @@ fn spinlock(c: &mut Criterion) {
     run_bench_1_2_4::<SpinlockV2>(&mut group);
     run_bench_1_2_4::<SpinlockV3>(&mut group);
     run_bench_1_2_4::<SpinlockV4>(&mut group);
+    run_bench_1_2_4_mutex(&mut group);
 }
 
 // single bench functions
@@ -118,6 +120,15 @@ fn run_bench_1_2_4<TSpinlock> (
     run_bench::<TSpinlock>(group, 1);
     run_bench::<TSpinlock>(group, 2);
     run_bench::<TSpinlock>(group, 4);
+}
+
+// single bench functions
+fn run_bench_1_2_4_mutex (
+    group: &mut BenchmarkGroup<'_, criterion::measurement::WallTime>,
+) {
+    run_bench_mutex(group, 1);
+    run_bench_mutex(group, 2);
+    run_bench_mutex(group, 4);
 }
 
 fn run_bench<TSpinlock> (
@@ -150,6 +161,48 @@ fn run_bench<TSpinlock> (
                             let counter = unsafe {&mut *counter.get()};
                             *counter += 1;
                             lock.unlock();
+                        }
+                    });
+
+                    threads.push(thread);
+                }
+
+                for thread in threads {
+                    thread.join().unwrap();
+                }
+
+                std::hint::black_box(counter);
+            });
+        }
+    );
+}
+
+fn run_bench_mutex (
+    group: &mut BenchmarkGroup<'_, criterion::measurement::WallTime>,
+    thread_count: usize,
+) {
+    group.bench_function(
+        format!(
+            "mutex threads: {}",
+            thread_count,
+        ),
+        |b| {
+            b.iter(||{
+                let mut threads = Vec::with_capacity(thread_count);
+                let lock = Arc::new(Mutex::new(()));
+                let counter = Arc::new(ris_ptr::SyncUnsafeCell::new(0));
+
+                for i in 0..thread_count {
+                    let lock = lock.clone();
+                    let counter = counter.clone();
+                    let thread = std::thread::spawn(move ||{
+                        ris_async::affinity::set_affinity(&[i]).unwrap();
+
+                        for _ in 0..10_000 {
+                            let guard = lock.lock().unwrap();
+                            let counter = unsafe {&mut *counter.get()};
+                            *counter += 1;
+                            drop(guard);
                         }
                     });
 
