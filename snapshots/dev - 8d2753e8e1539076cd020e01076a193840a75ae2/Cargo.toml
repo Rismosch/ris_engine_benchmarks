@@ -141,6 +141,10 @@ name = "math"
 harness = false
 
 [[bench]]
+name = "ringbuffer"
+harness = false
+
+[[bench]]
 name = "sincos"
 harness = false
 

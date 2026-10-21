@@ -21,6 +21,8 @@ struct SpinlockV1(AtomicBool);
 struct SpinlockV2(AtomicBool);
 struct SpinlockV3(AtomicBool);
 struct SpinlockV4(AtomicBool);
+#[repr(align(128))]
+struct SpinlockVA(SpinlockV4);
 
 impl Spinlock for SpinlockV1 {
     fn new() -> Self {
@@ -102,6 +104,20 @@ impl Spinlock for SpinlockV4 {
     }
 }
 
+impl Spinlock for SpinlockVA {
+    fn new() -> Self {
+        Self(SpinlockV4::new())
+    }
+
+    fn lock(&self) {
+        self.0.lock();
+    }
+
+    fn unlock(&self) {
+        self.0.unlock();
+    }
+}
+
 // bench
 fn spinlock(c: &mut Criterion) {
     let mut group = c.benchmark_group(format!("spinlock"));
@@ -110,6 +126,7 @@ fn spinlock(c: &mut Criterion) {
     run_bench_1_2_4::<SpinlockV2>(&mut group);
     run_bench_1_2_4::<SpinlockV3>(&mut group);
     run_bench_1_2_4::<SpinlockV4>(&mut group);
+    run_bench_1_2_4::<SpinlockVA>(&mut group);
     run_bench_1_2_4_mutex(&mut group);
 }
 
@@ -122,7 +139,6 @@ fn run_bench_1_2_4<TSpinlock> (
     run_bench::<TSpinlock>(group, 4);
 }
 
-// single bench functions
 fn run_bench_1_2_4_mutex (
     group: &mut BenchmarkGroup<'_, criterion::measurement::WallTime>,
 ) {

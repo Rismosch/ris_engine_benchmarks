@@ -19,11 +19,17 @@ Run `cargo run`. It will handle all benchmarking and plot generation.
 
 # WARNING (date: 2026-10-14)
 
+Machine: 
+- OS: Arch Linux x86_64
+- CPU: 12th Gen Intel i5-1235U (12) @ 4.400GHz
+- GPU: Intel Alder Lake-UP3 GT2 \[UHD Graphics\]
+- Memory: 7615MiB / 15667MiB
+
 It appears that this benchmarking tool has a major flaw: When it runs `cargo bench` multiple times (2 or more times), then the following benches will be significantly slower. This makes the results of this tool untrustworthy.
 
 I made this repo to compare my new and old asset system. The old one stored structured data in the compiled assets, which need to be deserialized. The new one stores structs in C-layout, requiring only a copy.
 
-When benched manually, on an Arch Linux x86_64 machine (CPU: 12th Gen Intel i5-1235U (12) @ 4.400GHz, GPU: Intel Alder Lake-UP3 GT2 \[UHD Graphics\], Memory: 7615MiB / 15667MiB), I get the following results (the number is the mean result produced by criterion):
+When benched manually, I get the following results (the number is the mean result produced by criterion):
 
     old: 6.2779 ms
     new: 6.0777 ms
@@ -33,3 +39,17 @@ This makes the new asset system ~3% faster, which I guess is a win. But when run
 My conclusion is that the new asset system is indeed faster, but the automatic tool produces an order effect, which skews results. As such, Rust appears to have been the wrong choice to write this automatic bench tool. A bash script may be the better choice.
 
 Also, the entire engine is initialized instead of just the asset system. This may also influence performance. Especially because currently I assume that the current async job system is a tiny bit slower than the old thread based job system.
+
+# Report: Spinlock/Ringbuffer (date: 2026-10-14)
+
+Machine: 
+- OS: Arch Linux x86_64
+- CPU: 12th Gen Intel i5-1235U (12) @ 4.400GHz
+- GPU: Intel Alder Lake-UP3 GT2 \[UHD Graphics\]
+- Memory: 7615MiB / 15667MiB
+
+It looks like a more sophisticated spinlock is faster than a naive one. But when tested in a Ringbuffer, the normal std::sync::Mutex beat it. (46.936 µs with mutex, 51.701 µs with spinlock)
+
+As for the single-producer-single-consumer rungbuffers, I failed to reproduce the results of [David Álvarez Rosa](https://david.alvarezrosa.com/posts/optimizing-a-lock-free-ring-buffer/). The naive lock free buffers are slightly slower, while sophisticated implementations are slightly faster. But the differences are small and look like statistical noise to me.
+
+It's worth mentioning that for my job system, I want deque behaviour from a thread safe queue (stack + queue). Considering that a simple ring buffer with a single mutex does the trick, complicated solutions are not justified.
