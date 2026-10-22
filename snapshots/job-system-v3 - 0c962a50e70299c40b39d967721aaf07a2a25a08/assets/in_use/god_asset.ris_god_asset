@@ -1,0 +1,15 @@
+{
+    "default_vert_spv": "shaders/default.vert.spv",
+    "default_frag_spv": "shaders/default.frag.spv",
+    "terrain_vert_spv": "shaders/terrain.vert.spv",
+    "terrain_frag_spv": "shaders/terrain.frag.spv",
+    "imgui_vert_spv": "shaders/imgui.vert.spv",
+    "imgui_frag_spv": "shaders/imgui.frag.spv",
+    "gizmo_segment_vert_spv": "shaders/gizmo_segment.vert.spv",
+    "gizmo_segment_frag_spv": "shaders/gizmo_segment.frag.spv",
+    "gizmo_text_vert_spv": "shaders/gizmo_text.vert.spv",
+    "gizmo_text_geom_spv": "shaders/gizmo_text.geom.spv",
+    "gizmo_text_frag_spv": "shaders/gizmo_text.frag.spv",
+    "debug_font_texture": "images/debug_font.qoi",
+    "texture": "images/profile_pic_2020_1000x1000.qoi"
+}

@@ -53,3 +53,17 @@ It looks like a more sophisticated spinlock is faster than a naive one. But when
 As for the single-producer-single-consumer rungbuffers, I failed to reproduce the results of [David Álvarez Rosa](https://david.alvarezrosa.com/posts/optimizing-a-lock-free-ring-buffer/). The naive lock free buffers are slightly slower, while sophisticated implementations are slightly faster. But the differences are small and look like statistical noise to me.
 
 It's worth mentioning that for my job system, I want deque behaviour from a thread safe queue (stack + queue). Considering that a simple ring buffer with a single mutex does the trick, complicated solutions are not justified.
+
+# Report: Job System (date: 2026-10-22)
+
+Machine: 
+- OS: Arch Linux x86_64
+- CPU: 12th Gen Intel i5-1235U (12) @ 4.400GHz
+- GPU: Intel Alder Lake-UP3 GT2 \[UHD Graphics\]
+- Memory: 7615MiB / 15667MiB
+
+The new job system (v3) with async remove performs about the same as the previous one (v2). v1 seems to be the fastest, but the difference is almost nonexistant, making me believe in statistical noise. And if it isn't, the difference is so small that I don't care. After the 2nd rewrite, the API is very clean and good to use.
+
+However, now i distinguish between 3 stall strategies: SpinLoop (only marked with `std::hint:spin_loop()`, same behaviour as "no parking" on v2), Yield (which uses `std::thread::yield_now()`) and Parking (uses std::thread::park(), same behaviour as "use parking" in v2).
+
+With no affinity, Yield performed much better than SpinLoop. SpinLoop has huge variance. With affinity set, the variance is gone and they perform about the same. Parking still wins overall, even by a small margin (probably below statistical noise).
